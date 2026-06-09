@@ -1,0 +1,19 @@
+# 환경변수 / 비밀키 (절대 커밋 금지)
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 데이터/캐시 (2차에서 사용)
+*.sqlite
+*.db
+data/cache/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
