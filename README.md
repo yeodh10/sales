@@ -7,7 +7,7 @@
 ## 진행 현황
 
 - [x] **Phase 0** — 셋업 (가상환경, Anthropic SDK, `.env`, Claude 호출 테스트)
-- [ ] Phase 1 — 나라장터 API 연결
+- [~] **Phase 1** — 나라장터 API 연결 (코드 완료, 인증키 받으면 실호출 검증)
 - [ ] Phase 2 — 보안 관련 분류
 - [ ] Phase 3 — 제품 매칭
 - [ ] Phase 4 — 에이전트화 (tool use)
@@ -47,6 +47,17 @@ venv\Scripts\python.exe hello_claude.py
 ```
 
 Claude의 응답과 함께 `[완료] Phase 0 셋업이 정상 동작합니다. ✅` 가 출력되면 성공입니다.
+
+### 4. Phase 1 검증 (나라장터 인증키 필요)
+
+`.env`의 `DATA_GO_KR_SERVICE_KEY`를 채운 뒤:
+
+```powershell
+venv\Scripts\python.exe phase1_fetch.py --division 용역 --keyword 정보보호 --days 30
+```
+
+최근 공고 목록이 표로 뜨고 `[완료] Phase 1 ... ✅` 가 출력되면 성공입니다.
+업무구분(`--division`)은 물품/용역/공사/외자 중 선택합니다.
 
 ## 주의사항
 
