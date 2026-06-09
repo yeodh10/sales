@@ -12,7 +12,9 @@
 - [~] **Phase 3** — 제품 매칭 ([matcher.py](matcher.py), 예시 카탈로그 `catalog.json`)
 - [~] **Phase 4** — 에이전트화 tool use ([agent.py](agent.py), `search_bids` 도구)
 - [~] **Phase 5** — 영업 토킹포인트 생성 ([generator.py](generator.py))
-- [~] **Phase 6** — Streamlit 대시보드 ([app.py](app.py))
+- [~] **Phase 6** — Streamlit 대시보드 ([app.py](app.py), 무료/API 2모드)
+- [~] **Phase 7-A** — RFP PDF 요구사항 추출·제품 대응표 ([rfp_extract.py](rfp_extract.py))
+- [~] **Phase 7-B** — 매일 아침 신규 보안공고 브리핑 ([daily_brief.py](daily_brief.py))
 
 > `[~]` = 코드 완료. 실제 결과 확인에는 키가 필요합니다. 분류·매칭·토킹포인트·에이전트·UI는 **Anthropic 키만 있으면 `--sample`로 전부 검증** 가능하고, 나라장터 실데이터 수집에는 `DATA_GO_KR_SERVICE_KEY`가 추가로 필요합니다.
 
@@ -120,6 +122,29 @@ venv\Scripts\streamlit run app.py
 브라우저에서 기간·업무구분·키워드 필터, 결과 표, 토킹포인트, CSV 다운로드를 사용합니다.
 예시 공고 토글이 기본 켜져 있어 나라장터 키 없이도 흐름을 볼 수 있습니다(분류·매칭에는 Anthropic 키 필요).
 
+### 9. Phase 7-A — RFP PDF 요구사항 추출
+
+```powershell
+venv\Scripts\python.exe rfp_extract.py "C:\경로\제안요청서.pdf"
+# → data/rfp_extracted.txt 생성 후, Claude Code에게
+#   "rfp_extracted.txt 요구사항 뽑고 catalog.json으로 대응표 만들어줘" 요청 (무료)
+# API 키가 있으면:  ... rfp_extract.py rfp.pdf --api  (대응표까지 자동 생성)
+```
+
+### 10. Phase 7-B — 매일 아침 신규 보안공고 브리핑
+
+```powershell
+venv\Scripts\python.exe daily_brief.py --days 2
+# → data/daily/보안공고_YYYY-MM-DD.md 에 '신규' 공고만 저장 (seen_bids.json으로 중복 제외)
+```
+
+**매일 자동 실행(Windows 작업 스케줄러):**
+
+```powershell
+schtasks /Create /SC DAILY /ST 08:00 /TN "보안공고_데일리브리핑" `
+  /TR "C:\Claude\sales\venv\Scripts\python.exe C:\Claude\sales\daily_brief.py"
+```
+
 ## 모듈 구조
 
 | 파일 | 역할 |
@@ -131,7 +156,10 @@ venv\Scripts\streamlit run app.py
 | `generator.py` | 영업 토킹포인트 생성 (Phase 5) |
 | `pipeline.py` | 분류→매칭→토킹포인트 오케스트레이션 |
 | `agent.py` | tool use 에이전트 (Phase 4) |
-| `app.py` | Streamlit 대시보드 (Phase 6) |
+| `app.py` | Streamlit 대시보드 (Phase 6, 무료/API 2모드) |
+| `fetch_bids.py` | 공고만 수집해 JSON 저장 (무료 경로 입력) |
+| `rfp_extract.py` | RFP PDF 요구사항 추출·대응표 (Phase 7-A) |
+| `daily_brief.py` | 매일 아침 신규 보안공고 브리핑 (Phase 7-B) |
 | `brief.py` / `phase1_fetch.py` / `phase2_classify.py` | CLI 실행 스크립트 |
 
 ## 주의사항
