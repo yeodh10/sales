@@ -8,8 +8,8 @@
 
 - [x] **Phase 0** — 셋업 (가상환경, Anthropic SDK, `.env`, Claude 호출 테스트)
 - [~] **Phase 1** — 나라장터 API 연결 (코드 완료, 인증키 받으면 실호출 검증)
-- [ ] Phase 2 — 보안 관련 분류
-- [ ] Phase 3 — 제품 매칭
+- [~] **Phase 2** — 보안 관련 분류 (코드 완료, Anthropic 키로 `--sample` 검증 가능)
+- [ ] Phase 3 — 제품 매칭 (예시 카탈로그 `catalog.json` 준비됨)
 - [ ] Phase 4 — 에이전트화 (tool use)
 - [ ] Phase 5 — 영업 산출물 생성
 - [ ] Phase 6 — Streamlit UI & 데모
@@ -58,6 +58,18 @@ venv\Scripts\python.exe phase1_fetch.py --division 용역 --keyword 정보보호
 
 최근 공고 목록이 표로 뜨고 `[완료] Phase 1 ... ✅` 가 출력되면 성공입니다.
 업무구분(`--division`)은 물품/용역/공사/외자 중 선택합니다.
+
+### 5. Phase 2 검증 (보안 분류 — Anthropic 키만 있으면 가능)
+
+나라장터 인증키 없이 예시 공고로 먼저 확인할 수 있습니다:
+
+```powershell
+venv\Scripts\python.exe phase2_classify.py --sample
+```
+
+예시 공고 6건이 보안/비보안으로 갈리고 카테고리·근거가 표시됩니다.
+실데이터로 돌리려면 `--sample` 대신 `--division 용역 --days 14` 등을 지정합니다
+(나라장터 + Anthropic 키 둘 다 필요).
 
 ## 주의사항
 
