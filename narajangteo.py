@@ -27,6 +27,9 @@ import config
 
 BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
 
+# 조회 기간 한 번에 허용되는 최대 일수(약 31일 초과 시 resultCode 07 에러).
+MAX_RANGE_DAYS = 30
+
 # 업무구분 한글명 -> (오퍼레이션, inqryDiv 기본값)
 # inqryDiv: 1=공고일시 기준 조회(공식 가이드 예시 기준)
 BUSINESS_DIVISIONS = {
@@ -101,22 +104,54 @@ def search_bids(
     if begin_dt is None:
         begin_dt = end_dt - timedelta(days=days)
 
-    # 주의: 이 오퍼레이션은 공고명(bidNtceNm) 서버 필터를 무시하고 날짜 범위
-    # 전체를 돌려준다. 따라서 키워드 필터는 받아온 뒤 클라이언트에서 처리한다.
-    # 키워드가 있으면 충분히 많이 받아와서 걸러야 하므로 numOfRows를 키운다.
+    url = f"{BASE_URL}/{operation}"
+
+    # 주의 1: 이 오퍼레이션은 공고명(bidNtceNm) 서버 필터를 무시하고 날짜 범위
+    #         전체를 돌려준다. 따라서 키워드 필터는 받아온 뒤 클라이언트에서 처리한다.
+    # 주의 2: 조회 기간이 약 31일을 넘으면 'resultCode 07 입력범위값 초과 에러'가 난다.
+    #         그래서 기간을 MAX_RANGE_DAYS 이하 구간으로 쪼개 호출하고 합친다.
     api_rows = max(rows, 500) if keyword else rows
 
+    all_bids: list[Bid] = []
+    seen: set[str] = set()
+    win_start = begin_dt
+    while win_start < end_dt:
+        win_end = min(win_start + timedelta(days=MAX_RANGE_DAYS), end_dt)
+        for b in _fetch_window(
+            url, service_key, division, win_start, win_end, api_rows, timeout
+        ):
+            if b.공고번호 not in seen:
+                seen.add(b.공고번호)
+                all_bids.append(b)
+        win_start = win_end
+
+    # 클라이언트측 키워드 필터(공고명 부분일치, 공백 무시).
+    if keyword:
+        kw = keyword.replace(" ", "")
+        all_bids = [b for b in all_bids if kw in b.공고명.replace(" ", "")]
+
+    return all_bids[:rows]
+
+
+def _fetch_window(
+    url: str,
+    service_key: str,
+    division: str,
+    begin_dt: datetime,
+    end_dt: datetime,
+    rows: int,
+    timeout: int,
+) -> list[Bid]:
+    """단일 기간 구간(≤MAX_RANGE_DAYS)에 대해 한 번 호출하고 파싱."""
     params = {
         "serviceKey": service_key,
         "type": "json",
         "inqryDiv": "1",
         "inqryBgnDt": _fmt_dt(begin_dt),
         "inqryEndDt": _fmt_dt(end_dt),
-        "pageNo": str(page),
-        "numOfRows": str(api_rows),
+        "pageNo": "1",
+        "numOfRows": str(rows),
     }
-
-    url = f"{BASE_URL}/{operation}"
 
     try:
         resp = requests.get(url, params=params, timeout=timeout)
@@ -127,25 +162,28 @@ def search_bids(
     try:
         data = resp.json()
     except ValueError as e:
-        # 인증키 오류 등은 XML 에러를 돌려주기도 한다.
         snippet = resp.text[:300]
         raise RuntimeError(
             f"JSON 파싱 실패(인증키/요청 형식 확인 필요). 응답 일부:\n{snippet}"
         ) from e
 
-    bids = _parse_response(data, division)
-
-    # 클라이언트측 키워드 필터(공고명 부분일치, 공백 무시).
-    if keyword:
-        kw = keyword.replace(" ", "")
-        bids = [b for b in bids if kw in b.공고명.replace(" ", "")]
-        bids = bids[:rows]
-
-    return bids
+    return _parse_response(data, division)
 
 
 def _parse_response(data: dict, division: str) -> list[Bid]:
     """공공데이터포털 표준 응답(response.header/body) 파싱."""
+    # 에러 응답은 정상과 envelope가 다르다(예: {"nkoneps.com.response.ResponseError": ...}).
+    # "response" 키가 없으면 에러 envelope에서 메시지를 찾아 올린다.
+    if "response" not in data:
+        for key, val in data.items():
+            if "ResponseError" in key and isinstance(val, dict):
+                h = val.get("header", {})
+                raise RuntimeError(
+                    f"API 오류 [{h.get('resultCode','?')}] "
+                    f"{h.get('resultMsg','(메시지 없음)')}"
+                )
+        raise RuntimeError(f"예상치 못한 응답 형식: {str(data)[:200]}")
+
     response = data.get("response", {})
     header = response.get("header", {})
     result_code = header.get("resultCode")

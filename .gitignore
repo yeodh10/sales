@@ -15,6 +15,10 @@ __pycache__/
 *.db
 data/cache/
 
+# 실행 중 생성되는 산출물 (live 수집/브리핑) — sample_bids.json은 커밋 유지
+data/bids_latest.json
+data/briefing_latest.*
+
 # OS / 에디터
 .DS_Store
 Thumbs.db

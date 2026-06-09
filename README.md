@@ -16,6 +16,28 @@
 
 > `[~]` = 코드 완료. 실제 결과 확인에는 키가 필요합니다. 분류·매칭·토킹포인트·에이전트·UI는 **Anthropic 키만 있으면 `--sample`로 전부 검증** 가능하고, 나라장터 실데이터 수집에는 `DATA_GO_KR_SERVICE_KEY`가 추가로 필요합니다.
 
+## 두 가지 실행 모드
+
+AI 단계(분류·매칭·영업멘트)를 돌리는 방법이 둘 있습니다.
+
+**(A) API 모드** — `.env`의 `ANTHROPIC_API_KEY`로 파이썬이 Claude API를 직접 호출.
+`classifier.py`·`matcher.py`·`generator.py`·`agent.py`·`app.py`가 이 경로다. 독립 실행 앱.
+console.anthropic.com 선불 크레딧 필요(실비용은 1회 수십 원 수준).
+
+**(B) Claude Code 모드(무료)** — Anthropic API 키 없이, Max 구독으로 동작.
+파이썬은 **수집만** 담당하고(`fetch_bids.py` → `data/bids_latest.json`),
+분류·매칭·영업멘트는 Claude Code가 그 JSON과 `catalog.json`을 읽어 직접 작성한다.
+
+```powershell
+# (B) 무료 경로: 보안 공고 수집 (나라장터 키만 필요)
+venv\Scripts\python.exe fetch_bids.py --division 용역 --keyword 보안 --days 30
+venv\Scripts\python.exe fetch_bids.py --division 물품 --keyword 백신 --append
+# → 이후 Claude Code에게 "data/bids_latest.json 분류·매칭·브리핑 해줘" 요청
+# → 결과 예시: data/briefing_latest.md / .csv
+```
+
+> 나라장터 조회는 1회 기간이 약 31일로 제한되어, 코드가 30일 이하 구간으로 자동 분할 호출합니다.
+
 ## 셋업 방법
 
 ### 1. 의존성 설치
