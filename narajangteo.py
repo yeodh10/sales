@@ -25,7 +25,7 @@ import requests
 
 import config
 
-BASE_URL = "http://apis.data.go.kr/1230000/BidPublicInfoService"
+BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
 
 # 업무구분 한글명 -> (오퍼레이션, inqryDiv 기본값)
 # inqryDiv: 1=공고일시 기준 조회(공식 가이드 예시 기준)
@@ -101,6 +101,11 @@ def search_bids(
     if begin_dt is None:
         begin_dt = end_dt - timedelta(days=days)
 
+    # 주의: 이 오퍼레이션은 공고명(bidNtceNm) 서버 필터를 무시하고 날짜 범위
+    # 전체를 돌려준다. 따라서 키워드 필터는 받아온 뒤 클라이언트에서 처리한다.
+    # 키워드가 있으면 충분히 많이 받아와서 걸러야 하므로 numOfRows를 키운다.
+    api_rows = max(rows, 500) if keyword else rows
+
     params = {
         "serviceKey": service_key,
         "type": "json",
@@ -108,10 +113,8 @@ def search_bids(
         "inqryBgnDt": _fmt_dt(begin_dt),
         "inqryEndDt": _fmt_dt(end_dt),
         "pageNo": str(page),
-        "numOfRows": str(rows),
+        "numOfRows": str(api_rows),
     }
-    if keyword:
-        params["bidNtceNm"] = keyword
 
     url = f"{BASE_URL}/{operation}"
 
@@ -130,7 +133,15 @@ def search_bids(
             f"JSON 파싱 실패(인증키/요청 형식 확인 필요). 응답 일부:\n{snippet}"
         ) from e
 
-    return _parse_response(data, division)
+    bids = _parse_response(data, division)
+
+    # 클라이언트측 키워드 필터(공고명 부분일치, 공백 무시).
+    if keyword:
+        kw = keyword.replace(" ", "")
+        bids = [b for b in bids if kw in b.공고명.replace(" ", "")]
+        bids = bids[:rows]
+
+    return bids
 
 
 def _parse_response(data: dict, division: str) -> list[Bid]:
