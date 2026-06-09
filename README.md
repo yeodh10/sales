@@ -9,10 +9,12 @@
 - [x] **Phase 0** — 셋업 (가상환경, Anthropic SDK, `.env`, Claude 호출 테스트)
 - [~] **Phase 1** — 나라장터 API 연결 (코드 완료, 인증키 받으면 실호출 검증)
 - [~] **Phase 2** — 보안 관련 분류 (코드 완료, Anthropic 키로 `--sample` 검증 가능)
-- [ ] Phase 3 — 제품 매칭 (예시 카탈로그 `catalog.json` 준비됨)
-- [ ] Phase 4 — 에이전트화 (tool use)
-- [ ] Phase 5 — 영업 산출물 생성
-- [ ] Phase 6 — Streamlit UI & 데모
+- [~] **Phase 3** — 제품 매칭 ([matcher.py](matcher.py), 예시 카탈로그 `catalog.json`)
+- [~] **Phase 4** — 에이전트화 tool use ([agent.py](agent.py), `search_bids` 도구)
+- [~] **Phase 5** — 영업 토킹포인트 생성 ([generator.py](generator.py))
+- [~] **Phase 6** — Streamlit 대시보드 ([app.py](app.py))
+
+> `[~]` = 코드 완료. 실제 결과 확인에는 키가 필요합니다. 분류·매칭·토킹포인트·에이전트·UI는 **Anthropic 키만 있으면 `--sample`로 전부 검증** 가능하고, 나라장터 실데이터 수집에는 `DATA_GO_KR_SERVICE_KEY`가 추가로 필요합니다.
 
 ## 셋업 방법
 
@@ -70,6 +72,45 @@ venv\Scripts\python.exe phase2_classify.py --sample
 예시 공고 6건이 보안/비보안으로 갈리고 카테고리·근거가 표시됩니다.
 실데이터로 돌리려면 `--sample` 대신 `--division 용역 --days 14` 등을 지정합니다
 (나라장터 + Anthropic 키 둘 다 필요).
+
+### 6. Phase 3+5 통합 브리핑 (분류 → 매칭 → 토킹포인트)
+
+```powershell
+venv\Scripts\python.exe brief.py --sample
+```
+
+보안 공고별 추천 제품과 영업 토킹포인트까지 한 번에 출력됩니다.
+
+### 7. Phase 4 에이전트 (자연어 → 도구 호출)
+
+```powershell
+venv\Scripts\python.exe agent.py --sample "이번 주 보안 공고 정리해줘"
+```
+
+Claude가 스스로 `search_bids` 도구를 호출한 뒤 분류·매칭·토킹포인트를 수행합니다.
+
+### 8. Phase 6 Streamlit 대시보드
+
+```powershell
+venv\Scripts\streamlit run app.py
+```
+
+브라우저에서 기간·업무구분·키워드 필터, 결과 표, 토킹포인트, CSV 다운로드를 사용합니다.
+예시 공고 토글이 기본 켜져 있어 나라장터 키 없이도 흐름을 볼 수 있습니다(분류·매칭에는 Anthropic 키 필요).
+
+## 모듈 구조
+
+| 파일 | 역할 |
+|------|------|
+| `config.py` | `.env` 로더 · 키 가드 · 콘솔 UTF-8 |
+| `narajangteo.py` | 나라장터 입찰공고 수집·파싱 (Phase 1) |
+| `classifier.py` | 보안 여부·카테고리 분류 (Phase 2) |
+| `matcher.py` | 제품 카탈로그 매칭 (Phase 3) |
+| `generator.py` | 영업 토킹포인트 생성 (Phase 5) |
+| `pipeline.py` | 분류→매칭→토킹포인트 오케스트레이션 |
+| `agent.py` | tool use 에이전트 (Phase 4) |
+| `app.py` | Streamlit 대시보드 (Phase 6) |
+| `brief.py` / `phase1_fetch.py` / `phase2_classify.py` | CLI 실행 스크립트 |
 
 ## 주의사항
 
