@@ -17,6 +17,7 @@ import streamlit as st
 import config
 import narajangteo
 import pipeline
+import scoring
 
 DATA_DIR = Path(__file__).parent / "data"
 BRIEFING_LATEST = DATA_DIR / "briefing_latest.json"
@@ -32,7 +33,12 @@ CAT_COLORS = {
     "정보보호 컨설팅": "#A78BFA", "보안관제(SOC)": "#60A5FA",
     "방화벽": "#2DD4BF", "네트워크 보안": "#2DD4BF", "망분리": "#22D3EE",
     "접근통제(IAM)": "#818CF8", "백신/EDR": "#FB923C", "보안 교육": "#F472B6",
-    "OT 보안": "#FBBF24", "인프라": "#94A3B8", "보안 행사": "#F472B6",
+    "보안 유지관리": "#34D399", "OT 보안": "#FBBF24", "보안 거버넌스": "#A3A3A3",
+    "인프라": "#94A3B8", "보안 행사": "#F472B6",
+}
+TIER_COLOR = {
+    "🔥 핫": "#3DDC97", "주목": "#7FC8FF", "검토": "#F5B14C",
+    "후순위": "#6B7280", "마감 지남": "#6B7280", "제외": "#6B7280",
 }
 
 
@@ -81,6 +87,13 @@ st.markdown(
         border-top:3px solid var(--c); border-radius:16px; padding:16px 18px;
         box-shadow:0 6px 22px rgba(0,0,0,.30); transition:transform .15s, border-color .15s; }
       .deal:hover { transform:translateY(-3px); border-color:#37445A; }
+      .deal .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+      .scorebox { text-align:center; flex:0 0 auto; line-height:1; }
+      .scorebox .sc { font-size:1.5rem; font-weight:800; color:var(--t); }
+      .scorebox .sct { font-size:.66rem; font-weight:700; color:var(--t); white-space:nowrap; }
+      .dday { display:inline-block; padding:1px 8px; border-radius:6px; font-size:.72rem;
+        font-weight:700; margin-left:6px; color:var(--t);
+        background:color-mix(in srgb,var(--t) 16%, transparent); }
       .deal .title { font-size:1.02rem; font-weight:700; line-height:1.4; margin:8px 0 6px; color:#EDF1F7; }
       .deal .meta { color:#7F8D9F; font-size:.8rem; margin-bottom:10px; }
       .pill { display:inline-block; padding:3px 11px; border-radius:999px; font-size:.72rem;
@@ -135,11 +148,12 @@ def _hero(meta: dict | None) -> None:
     )
 
 
-def _kpis(total: int, sec: int, tgt: int) -> None:
-    cols = st.columns(3)
+def _kpis(total: int, sec: int, tgt: int, hot: int) -> None:
+    cols = st.columns(4)
     data = [("📄", total, "전체 공고", "#9FB0C3"),
             ("🛡️", sec, "보안 관련", "#60A5FA"),
-            ("⭐", tgt, "영업 우선대상", "#3DDC97")]
+            ("⭐", tgt, "영업 우선대상", "#3DDC97"),
+            ("🔥", hot, "핫 리드(72점+)", "#FB7185")]
     for col, (ic, v, l, a) in zip(cols, data):
         col.markdown(
             f'<div class="kpi" style="--a:{a}"><div class="ic">{ic}</div>'
@@ -151,6 +165,8 @@ def _kpis(total: int, sec: int, tgt: int) -> None:
 def _deal_html(it: dict) -> str:
     e = html.escape
     c = cat_color(it.get("카테고리", ""))
+    s = it.get("_score", {})
+    t = TIER_COLOR.get(s.get("등급표시", ""), "#6B7280")
     prods = "".join(
         f'<div class="prod">✓ <b>{e(p.get("제품명",""))}</b> — {e(p.get("매칭이유",""))}</div>'
         for p in it.get("추천제품", [])
@@ -160,10 +176,16 @@ def _deal_html(it: dict) -> str:
         for k in ("고객요구", "우리강점", "차별점") if it.get(k)
     )
     quote = f'<div class="quote">💬 {e(it["토킹포인트"])}</div>' if it.get("토킹포인트") else ""
+    dday = (f'<span class="dday" style="--t:{t}">{e(s.get("마감표시",""))}</span>'
+            if s.get("마감표시") else "")
+    score_box = (
+        f'<div class="scorebox" style="--t:{t}">'
+        f'<div class="sc">{s.get("점수", 0)}</div><div class="sct">{e(s.get("등급표시",""))}</div></div>'
+    )
     return (
         f'<div class="deal" style="--c:{c}">'
-        f'<span class="pill" style="--c:{c}">{e(it.get("카테고리",""))}</span>'
-        f'<div class="title">{e(it.get("공고명",""))}</div>'
+        f'<div class="top"><span class="pill" style="--c:{c}">{e(it.get("카테고리",""))}</span>{score_box}</div>'
+        f'<div class="title">{e(it.get("공고명",""))}{dday}</div>'
         f'<div class="meta">{e(it.get("발주기관",""))} · {e(it.get("업무구분",""))} · {e(it.get("공고번호",""))}</div>'
         f'{prods}{tp}{quote}</div>'
     )
@@ -172,32 +194,44 @@ def _deal_html(it: dict) -> str:
 def _table_html(items: list[dict]) -> str:
     e = html.escape
     head = ('<table class="bf"><thead><tr>'
-            '<th>등급</th><th>카테고리</th><th>공고명</th><th>발주기관</th><th>추천제품</th>'
+            '<th>점수</th><th>등급</th><th>카테고리</th><th>공고명</th>'
+            '<th>마감</th><th>추천제품</th>'
             '</tr></thead><tbody>')
     rows = []
     for it in items:
         ic, gc = GRADE_META.get(it.get("등급", ""), ("", "#888"))
         c = cat_color(it.get("카테고리", ""))
+        s = it.get("_score", {})
+        t = TIER_COLOR.get(s.get("등급표시", ""), "#6B7280")
+        sc = s.get("점수", 0)
+        score_cell = (f'<span class="chip" style="--g:{t}">{sc}</span>' if sc
+                      else '<span style="color:#4B5563">—</span>')
         recs = ", ".join(p.get("제품명", "") for p in it.get("추천제품", [])) or "—"
         rows.append(
-            f'<tr><td><span class="chip" style="--g:{gc}">{ic} {e(it.get("등급",""))}</span></td>'
-            f'<td><span class="catdot" style="--c:{c}"></span>{e(it.get("카테고리",""))}</td>'
-            f'<td>{e(it.get("공고명",""))}</td>'
-            f'<td style="color:#9AA7B8">{e(it.get("발주기관",""))}</td>'
-            f'<td style="color:#A9B6C6">{e(recs)}</td></tr>'
+            f'<tr><td style="white-space:nowrap;text-align:center">{score_cell}</td>'
+            f'<td style="white-space:nowrap"><span class="chip" style="--g:{gc}">{ic} {e(it.get("등급",""))}</span></td>'
+            f'<td style="white-space:nowrap"><span class="catdot" style="--c:{c}"></span>{e(it.get("카테고리",""))}</td>'
+            f'<td style="min-width:220px">{e(it.get("공고명",""))}</td>'
+            f'<td style="color:#9AA7B8;white-space:nowrap">{e(s.get("마감표시","")) or "—"}</td>'
+            f'<td style="color:#A9B6C6;white-space:nowrap">{e(recs)}</td></tr>'
         )
     return head + "".join(rows) + "</tbody></table>"
 
 
 def render_briefing(items: list[dict], meta: dict | None = None) -> None:
-    items = sorted(items, key=lambda x: GRADE_ORDER.get(x.get("등급", ""), 9))
-    targets = [i for i in items if i.get("등급") == "영업대상"]
+    scoring.annotate(items)  # 각 항목에 _score 부여(우선순위 점수)
+    targets = scoring.rank_targets(items)           # 영업대상: 점수 내림차순
     security = [i for i in items if i.get("보안여부")]
+    hot = sum(1 for t in targets if t["_score"]["점수"] >= 72)
+    # 표: 등급 순 → 점수 내림차순
+    items = sorted(items, key=lambda x: (GRADE_ORDER.get(x.get("등급", ""), 9),
+                                         -x.get("_score", {}).get("점수", 0)))
 
     _hero(meta)
-    _kpis(len(items), len(security), len(targets))
+    _kpis(len(items), len(security), len(targets), hot)
 
-    st.markdown('<div class="sec-h">⭐ 영업 우선대상</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-h">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 우선순위 점수순</span></div>',
+                unsafe_allow_html=True)
     if targets:
         st.markdown('<div class="grid">' + "".join(_deal_html(i) for i in targets) + "</div>",
                     unsafe_allow_html=True)
@@ -208,9 +242,11 @@ def render_briefing(items: list[dict], meta: dict | None = None) -> None:
     st.markdown(_table_html(items), unsafe_allow_html=True)
 
     df = pd.DataFrame([{
+        "점수": it.get("_score", {}).get("점수", 0),
+        "우선순위": it.get("_score", {}).get("등급표시", ""),
         "등급": it.get("등급", ""), "카테고리": it.get("카테고리", ""),
         "공고명": it.get("공고명", ""), "발주기관": it.get("발주기관", ""),
-        "업무": it.get("업무구분", ""),
+        "업무": it.get("업무구분", ""), "마감": it.get("마감일시", ""),
         "추천제품": "; ".join(p.get("제품명", "") for p in it.get("추천제품", [])),
     } for it in items])
     st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
@@ -231,7 +267,8 @@ def _pipeline_to_items(out: dict, bids: list[dict]) -> list[dict]:
         items.append({
             "공고번호": r["공고번호"], "공고명": r["공고명"],
             "발주기관": src.get("공고기관", ""), "업무구분": src.get("업무구분", ""),
-            "공고url": src.get("공고url", ""), "보안여부": r["보안여부"],
+            "공고url": src.get("공고url", ""), "마감일시": src.get("마감일시", ""),
+            "보안여부": r["보안여부"],
             "등급": grade, "카테고리": r["카테고리"], "추천제품": r.get("추천제품", []),
             "고객요구": r.get("고객요구", ""), "우리강점": r.get("우리강점", ""),
             "차별점": r.get("차별점", ""), "토킹포인트": r.get("토킹포인트", ""),
