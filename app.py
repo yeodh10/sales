@@ -23,9 +23,10 @@ DATA_DIR = Path(__file__).parent / "data"
 BRIEFING_LATEST = DATA_DIR / "briefing_latest.json"
 BRIEFING_SAMPLE = DATA_DIR / "sample_briefing.json"
 
-GRADE_ORDER = {"영업대상": 0, "보안주제/매칭약함": 1, "제외": 2}
+GRADE_ORDER = {"영업대상": 0, "연관기회": 1, "보안주제/매칭약함": 2, "제외": 3}
 GRADE_META = {
     "영업대상": ("⭐", "#3DDC97"),
+    "연관기회": ("🔗", "#7FC8FF"),
     "보안주제/매칭약함": ("🔸", "#F5B14C"),
     "제외": ("✕", "#6B7280"),
 }
@@ -104,6 +105,9 @@ st.markdown(
       .prod b { color:var(--c); }
       .tp { font-size:.88rem; color:#B9C4D2; margin:4px 0; }
       .tp b { color:#EDF1F7; }
+      .cross { font-size:.85rem; margin-top:6px; color:#9FD2F2;
+        background:rgba(127,200,255,.08); border:1px solid rgba(127,200,255,.2);
+        border-radius:8px; padding:8px 11px; }
       .quote { background:linear-gradient(180deg, color-mix(in srgb,var(--c) 12%, #0E141E), #0E141E);
         border:1px solid color-mix(in srgb,var(--c) 30%, transparent); border-radius:10px;
         padding:11px 14px; margin-top:11px; font-size:.9rem; color:#E4EEF6; line-height:1.55; }
@@ -148,11 +152,11 @@ def _hero(meta: dict | None) -> None:
     )
 
 
-def _kpis(total: int, sec: int, tgt: int, hot: int) -> None:
+def _kpis(total: int, tgt: int, adj: int, hot: int) -> None:
     cols = st.columns(4)
     data = [("📄", total, "전체 공고", "#9FB0C3"),
-            ("🛡️", sec, "보안 관련", "#60A5FA"),
             ("⭐", tgt, "영업 우선대상", "#3DDC97"),
+            ("🔗", adj, "연관 기회", "#7FC8FF"),
             ("🔥", hot, "핫 리드(72점+)", "#FB7185")]
     for col, (ic, v, l, a) in zip(cols, data):
         col.markdown(
@@ -191,6 +195,25 @@ def _deal_html(it: dict) -> str:
     )
 
 
+def _adj_html(it: dict) -> str:
+    e = html.escape
+    c = cat_color(it.get("카테고리", ""))
+    s = it.get("_score", {})
+    t = TIER_COLOR.get(s.get("등급표시", ""), "#7FC8FF")
+    dday = (f'<span class="dday" style="--t:{t}">{e(s.get("마감표시",""))}</span>'
+            if s.get("마감표시") else "")
+    score_box = (f'<div class="scorebox" style="--t:{t}"><div class="sc">{s.get("점수",0)}</div>'
+                 f'<div class="sct">{e(s.get("등급표시",""))}</div></div>')
+    cross = f'<div class="cross">🔗 크로스셀 · {e(it["크로스셀"])}</div>' if it.get("크로스셀") else ""
+    return (
+        f'<div class="deal" style="--c:{c}">'
+        f'<div class="top"><span class="pill" style="--c:{c}">{e(it.get("카테고리",""))}</span>{score_box}</div>'
+        f'<div class="title">{e(it.get("공고명",""))}{dday}</div>'
+        f'<div class="meta">{e(it.get("발주기관",""))} · {e(it.get("업무구분",""))} · {e(it.get("공고번호",""))}</div>'
+        f'{cross}</div>'
+    )
+
+
 def _table_html(items: list[dict]) -> str:
     e = html.escape
     head = ('<table class="bf"><thead><tr>'
@@ -221,22 +244,29 @@ def _table_html(items: list[dict]) -> str:
 def render_briefing(items: list[dict], meta: dict | None = None) -> None:
     scoring.annotate(items)  # 각 항목에 _score 부여(우선순위 점수)
     targets = scoring.rank_targets(items)           # 영업대상: 점수 내림차순
-    security = [i for i in items if i.get("보안여부")]
+    adj = sorted([i for i in items if i.get("등급") == "연관기회"],
+                 key=lambda x: -x.get("_score", {}).get("점수", 0))
     hot = sum(1 for t in targets if t["_score"]["점수"] >= 72)
     # 표: 등급 순 → 점수 내림차순
     items = sorted(items, key=lambda x: (GRADE_ORDER.get(x.get("등급", ""), 9),
                                          -x.get("_score", {}).get("점수", 0)))
 
     _hero(meta)
-    _kpis(len(items), len(security), len(targets), hot)
+    _kpis(len(items), len(targets), len(adj), hot)
 
-    st.markdown('<div class="sec-h">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 우선순위 점수순</span></div>',
+    st.markdown('<div class="sec-h">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 직접 보안, 우선순위 점수순</span></div>',
                 unsafe_allow_html=True)
     if targets:
         st.markdown('<div class="grid">' + "".join(_deal_html(i) for i in targets) + "</div>",
                     unsafe_allow_html=True)
     else:
         st.caption("매칭된 영업 대상이 없습니다.")
+
+    if adj:
+        st.markdown('<div class="sec-h">🔗 연관 기회 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 보안이 따라붙는 IT 사업 (크로스셀)</span></div>',
+                    unsafe_allow_html=True)
+        st.markdown('<div class="grid">' + "".join(_adj_html(i) for i in adj) + "</div>",
+                    unsafe_allow_html=True)
 
     st.markdown('<div class="sec-h">📋 전체 브리핑</div>', unsafe_allow_html=True)
     st.markdown(_table_html(items), unsafe_allow_html=True)

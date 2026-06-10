@@ -16,6 +16,7 @@
 - [~] **Phase 7-A** — RFP PDF 요구사항 추출·제품 대응표 ([rfp_extract.py](rfp_extract.py))
 - [~] **Phase 7-B** — 매일 아침 신규 보안공고 브리핑 ([daily_brief.py](daily_brief.py))
 - [x] **우선순위 스코어링** — 적합도×카테고리×마감 임박도로 공고 점수화 ([scoring.py](scoring.py))
+- [x] **연관 공고 확장** — 직접 보안 + 보안이 따라붙는 IT 사업(크로스셀)까지 수집·분류 ([keywords.py](keywords.py))
 
 > `[~]` = 코드 완료. 실제 결과 확인에는 키가 필요합니다. 분류·매칭·토킹포인트·에이전트·UI는 **Anthropic 키만 있으면 `--sample`로 전부 검증** 가능하고, 나라장터 실데이터 수집에는 `DATA_GO_KR_SERVICE_KEY`가 추가로 필요합니다.
 
@@ -154,6 +155,8 @@ schtasks /Create /SC DAILY /ST 08:00 /TN "보안공고_데일리브리핑" `
 | `narajangteo.py` | 나라장터 입찰공고 수집·파싱 (Phase 1) |
 | `classifier.py` | 보안 여부·카테고리 분류 (Phase 2) |
 | `scoring.py` | 영업 우선순위 점수(적합도·카테고리·마감) — AI 없이 결정론적 |
+| `keywords.py` | 수집 키워드 그룹(CORE 직접보안 / ADJACENT 연관) |
+| `build_briefing.py` | 공고 + 분류규칙(decisions.json) → 브리핑 JSON 빌더 |
 | `matcher.py` | 제품 카탈로그 매칭 (Phase 3) |
 | `generator.py` | 영업 토킹포인트 생성 (Phase 5) |
 | `pipeline.py` | 분류→매칭→토킹포인트 오케스트레이션 |

@@ -23,6 +23,7 @@ data/daily/
 data/rfp_extracted.txt
 data/rfp_response_latest.md
 data/bids_score.json
+data/bids_broad.json
 streamlit.log
 server.log
 run.log

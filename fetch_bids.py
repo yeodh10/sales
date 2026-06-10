@@ -17,9 +17,27 @@ import sys
 from pathlib import Path
 
 import config  # noqa: F401  (.env 로드 + 콘솔 인코딩)
+import keywords
 import narajangteo
 
 OUT_DEFAULT = Path(__file__).parent / "data" / "bids_latest.json"
+
+
+def collect_scope(scope: str, days: int, rows: int) -> list[dict]:
+    """키워드 그룹(core/adjacent/all)을 용역+물품에 걸쳐 수집·중복제거."""
+    by_no: dict[str, dict] = {}
+    for division in ("용역", "물품"):
+        for kw in keywords.keywords_for(scope):
+            try:
+                bids = narajangteo.search_bids(
+                    division=division, keyword=kw, days=days, rows=rows
+                )
+            except RuntimeError as e:
+                print(f"  [경고] {division}/{kw} 실패: {e}")
+                continue
+            for b in bids:
+                by_no.setdefault(b.공고번호, b.to_dict())
+    return list(by_no.values())
 
 
 def main() -> int:
@@ -28,6 +46,8 @@ def main() -> int:
         "--division", default="용역", choices=list(narajangteo.BUSINESS_DIVISIONS)
     )
     parser.add_argument("--keyword", default=None)
+    parser.add_argument("--scope", default=None, choices=["core", "adjacent", "all"],
+                        help="키워드 그룹 일괄 수집(용역+물품). 지정 시 --division/--keyword 무시")
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--rows", type=int, default=50)
     parser.add_argument("--out", default=str(OUT_DEFAULT))
@@ -38,17 +58,17 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        bids = narajangteo.search_bids(
-            division=args.division,
-            keyword=args.keyword,
-            days=args.days,
-            rows=args.rows,
-        )
+        if args.scope:
+            new_rows = collect_scope(args.scope, args.days, args.rows)
+        else:
+            bids = narajangteo.search_bids(
+                division=args.division, keyword=args.keyword,
+                days=args.days, rows=args.rows,
+            )
+            new_rows = [b.to_dict() for b in bids]
     except RuntimeError as e:
         print(f"[오류] {e}")
         return 1
-
-    new_rows = [b.to_dict() for b in bids]
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -66,8 +86,12 @@ def main() -> int:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False, indent=2)
 
-    kw = f" / '{args.keyword}'" if args.keyword else ""
-    print(f"[{args.division}]{kw} 신규 {len(new_rows)}건 → 누적 {len(merged)}건 저장: {out_path.name}")
+    if args.scope:
+        label = f"[scope={args.scope}]"
+    else:
+        kw = f" / '{args.keyword}'" if args.keyword else ""
+        label = f"[{args.division}]{kw}"
+    print(f"{label} 신규 {len(new_rows)}건 → 누적 {len(merged)}건 저장: {out_path.name}")
     return 0
 
 

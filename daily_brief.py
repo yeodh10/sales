@@ -24,15 +24,12 @@ from datetime import datetime
 from pathlib import Path
 
 import config  # noqa: F401  (.env 로드 + 콘솔 인코딩)
+import keywords
 import narajangteo
 
 DATA_DIR = Path(__file__).parent / "data"
 SEEN_PATH = DATA_DIR / "seen_bids.json"
 DAILY_DIR = DATA_DIR / "daily"
-
-# 보안 영업 후보를 폭넓게 잡는 키워드(오탐은 사람이/Claude가 2차 필터).
-KEYWORDS_SERVC = ["보안", "정보보호", "관제", "망분리", "접근통제", "취약점", "개인정보", "암호"]
-KEYWORDS_THNG = ["보안", "방화벽", "백신", "EDR", "스토리지"]
 
 
 def _load_seen() -> set[str]:
@@ -48,12 +45,12 @@ def _save_seen(seen: set[str]) -> None:
         json.dump(sorted(seen), f, ensure_ascii=False, indent=2)
 
 
-def collect(days: int) -> list[dict]:
-    """보안 키워드로 용역+물품 공고를 모아 공고번호로 중복 제거."""
+def collect(days: int, scope: str = "all") -> list[dict]:
+    """보안(+연관) 키워드로 용역+물품 공고를 모아 공고번호로 중복 제거."""
     by_no: dict[str, dict] = {}
-    plan = [("용역", KEYWORDS_SERVC), ("물품", KEYWORDS_THNG)]
-    for division, keywords in plan:
-        for kw in keywords:
+    kw_list = keywords.keywords_for(scope)
+    for division in ("용역", "물품"):
+        for kw in kw_list:
             try:
                 bids = narajangteo.search_bids(
                     division=division, keyword=kw, days=days, rows=100
@@ -69,6 +66,8 @@ def collect(days: int) -> list[dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="신규 보안 공고 데일리 브리핑 (Phase 7-B)")
     parser.add_argument("--days", type=int, default=2, help="최근 며칠 (기본 2)")
+    parser.add_argument("--scope", default="all", choices=["core", "adjacent", "all"],
+                        help="core=직접보안, adjacent=연관, all=둘다(기본)")
     parser.add_argument("--reset", action="store_true", help="본 기록 초기화 후 종료")
     args = parser.parse_args()
 
@@ -79,7 +78,7 @@ def main() -> int:
         return 0
 
     seen = _load_seen()
-    all_bids = collect(args.days)
+    all_bids = collect(args.days, args.scope)
     new_bids = [b for b in all_bids if b["공고번호"] not in seen]
 
     today = datetime.now().strftime("%Y-%m-%d")
