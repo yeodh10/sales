@@ -62,6 +62,7 @@
         <p class="notice" role="note">
           ⚠️ 이 화면의 공고·제품·점수는 모두 <strong>예시 데이터</strong>입니다(나라장터 샘플 브리핑 + 예시 제품 카탈로그). 실제 운영 시 코파일럿 결과로 자동 갱신됩니다.
         </p>
+        <p class="data-error" id="data-error" role="alert" hidden>⚠️ 데이터를 불러오지 못했습니다(data.js 확인). 표시 내용이 비어 있거나 최신이 아닐 수 있습니다.</p>
       </div>
     </section>
 
@@ -93,23 +94,30 @@
               <select id="board-category" aria-label="카테고리 필터"></select>
             </label>
             <label class="field">
+              <span class="sr-only">담당자</span>
+              <select id="board-owner" aria-label="담당자 필터"></select>
+            </label>
+            <label class="field">
               <span class="sr-only">정렬</span>
               <select id="board-sort" aria-label="정렬 기준">
                 <option value="score">정렬: 점수순</option>
                 <option value="deadline">정렬: 마감임박순</option>
+                <option value="urgent">정렬: D-7 임박만</option>
               </select>
             </label>
             <label class="field field--search">
               <span class="sr-only">검색</span>
-              <input type="search" id="board-search" placeholder="공고명·기관 검색" autocomplete="off" />
+              <input type="search" id="board-search" placeholder="공고·기관·제품·메모 검색" autocomplete="off" />
             </label>
+            <button id="board-export" class="copy-btn" type="button">CSV 내보내기</button>
           </div>
         </div>
 
+        <div class="status-summary" id="status-summary" role="group" aria-label="상태별 파이프라인 요약"></div>
         <p class="result-count" id="board-count" aria-live="polite"></p>
         <p class="track-note" id="track-mode">💼 각 공고의 <strong>상태·담당자·메모</strong>는 이 브라우저에 저장됩니다(영업 관리용 · 기기 로컬).</p>
         <div class="board-grid" id="board-grid"></div>
-        <p class="empty" id="board-empty" hidden>조건에 맞는 공고가 없습니다. 필터를 조정해 보세요.</p>
+        <p class="empty" id="board-empty" role="status" hidden>조건에 맞는 공고가 없습니다. 필터를 조정해 보세요.</p>
       </div>
     </section>
 

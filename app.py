@@ -381,7 +381,18 @@ else:
                 out = pipeline.run_pipeline(bids)
             except RuntimeError as ex:
                 st.error(str(ex)); st.stop()
-        render_briefing(_pipeline_to_items(out, bids))
+        items = _pipeline_to_items(out, bids)
+        # 라이브 분석 결과를 briefing_latest.json 으로 저장 → 포털(portal_export)이 같은 데이터를 서빙.
+        try:
+            from datetime import date as _date
+            payload = {"생성일": _date.today().isoformat(),
+                       "출처": "나라장터(조달청) 입찰공고정보서비스",
+                       "분석": "API 분석", "수집건수": len(items), "items": items}
+            BRIEFING_LATEST.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+        render_briefing(items)
     else:
         _hero(None)
         st.info("왼쪽에서 조건을 정하고 **분석 실행**을 눌러주세요. (Anthropic 키 필요)")

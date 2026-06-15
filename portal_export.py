@@ -23,6 +23,14 @@ CAT = os.path.join(BASE, "catalog.json")
 OUT = os.path.join(BASE, "portal", "data.js")
 
 
+def _safe_url(u: object) -> str:
+    """저장형 XSS 2차 방어: http/https 로 시작하는 URL만 통과시키고,
+    javascript:/data: 등 위험 스킴은 빈 문자열로 정제한다.
+    (클라이언트 safeUrl 과 이중 방어)."""
+    s = str(u or "").strip()
+    return s if s[:7].lower() == "http://" or s[:8].lower() == "https://" else ""
+
+
 def load_briefing() -> tuple[dict, str]:
     path = LIVE if os.path.exists(LIVE) else SAMPLE
     with open(path, encoding="utf-8") as f:
@@ -43,7 +51,7 @@ def export(ref: str | None = None) -> dict:
             "name": it.get("공고명", ""),
             "org": it.get("발주기관", ""),
             "type": it.get("업무구분", ""),
-            "url": it.get("공고url", ""),
+            "url": _safe_url(it.get("공고url", "")),
             "deadline": it.get("마감일시", ""),
             "security": bool(it.get("보안여부", False)),
             "grade": it.get("등급", ""),

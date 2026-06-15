@@ -193,7 +193,7 @@ select { appearance: none; padding-right: 34px; cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%239aa3b4' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; }
 .field--search input { min-width: 220px; }
-input::placeholder { color: var(--faint); }
+input::placeholder { color: #8a93a6; }
 
 .result-count { color: var(--faint); font-size: 0.85rem; margin: 0 0 16px; font-variant-numeric: tabular-nums; }
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
@@ -357,18 +357,48 @@ input::placeholder { color: var(--faint); }
   border-radius: 999px; padding: 6px 12px; border: 1px solid var(--border-strong);
   background: var(--surface-3); color: var(--muted); appearance: none;
 }
-.track-status[data-v="검토"] { color: var(--accent); border-color: rgba(108, 140, 255, 0.5); background: rgba(108, 140, 255, 0.12); }
+.track-status[data-v="검토"] { color: #8aa2ff; border-color: rgba(108, 140, 255, 0.5); background: rgba(108, 140, 255, 0.12); }
 .track-status[data-v="제안"] { color: var(--amber); border-color: rgba(245, 185, 69, 0.5); background: rgba(245, 185, 69, 0.12); }
 .track-status[data-v="수주"] { color: var(--green); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.14); }
-.track-status[data-v="보류"] { color: var(--faint); opacity: 0.85; }
+.track-status[data-v="보류"] { color: var(--gray); }
 .track-owner, .track-memo {
   font-family: inherit; font-size: 0.8rem; color: var(--text);
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; min-height: 34px;
 }
 .track-owner { width: 96px; }
 .track-memo { flex: 1; min-width: 130px; }
-.track-owner::placeholder, .track-memo::placeholder { color: var(--faint); }
+.track-owner::placeholder, .track-memo::placeholder { color: #8a93a6; }
 .track-owner:focus, .track-memo:focus { border-color: var(--accent); }
+
+/* save 상태 피드백 (팀 공유 모드) */
+.track-saved { font-size: 0.74rem; font-variant-numeric: tabular-nums; color: var(--faint); margin-left: auto; white-space: nowrap; transition: color 0.15s ease; }
+.track-saved.is-ok { color: var(--green); }
+.track-saved.is-pending { color: var(--amber); }
+.track-saved.is-err { color: var(--red); }
+
+/* 데이터 로드 실패 배너 */
+.data-error {
+  margin-top: 18px; padding: 12px 16px; border-radius: var(--radius-sm);
+  background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.35);
+  color: #ffc6cf; font-size: 0.88rem; font-weight: 600;
+}
+
+/* 신선도 표시 */
+.stale { color: var(--amber); }
+
+/* AI 판단근거 */
+.bid-reason { font-size: 0.82rem; color: var(--faint); }
+.bid-reason b { color: var(--muted); font-weight: 600; }
+.bid-match { font-size: 0.82rem; color: var(--muted); }
+.bid-match summary { cursor: pointer; color: var(--faint); font-size: 0.8rem; }
+.bid-match summary:hover { color: var(--text); }
+.bid-match ul { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
+.bid-match li { font-size: 0.8rem; color: var(--muted); }
+.bid-match li b { color: var(--accent-2); font-weight: 600; }
+
+/* 상태별 파이프라인 요약 */
+.status-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.status-summary:empty { display: none; }
 
 /* ----------------------------------------------------------------- Responsive */
 @media (max-width: 860px) {
@@ -377,9 +407,10 @@ input::placeholder { color: var(--faint); }
     position: absolute; left: 0; right: 0; top: 64px;
     background: rgba(11, 12, 16, 0.97); border-bottom: 1px solid var(--border);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-    max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    max-height: 0; overflow: hidden; visibility: hidden;
+    transition: max-height 0.3s ease, visibility 0.3s ease;
   }
-  .site-header.nav-open .nav { max-height: 60vh; }
+  .site-header.nav-open .nav { max-height: 60vh; visibility: visible; }
   .nav ul { flex-direction: column; padding: 10px clamp(18px, 4vw, 40px) 18px; gap: 2px; }
   .nav-link { display: block; padding: 12px 6px; border-bottom: 1px solid var(--border); border-radius: 0; }
   .controls { flex-direction: column; align-items: stretch; }
@@ -392,4 +423,15 @@ input::placeholder { color: var(--faint); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
   .reveal { opacity: 1; transform: none; }
+}
+
+/* ----------------------------------------------------------------- Print */
+@media print {
+  .site-header, .to-top, .controls, .bid-track, .nav, .status-summary, .skip-link { display: none !important; }
+  body { background: #fff; color: #000; background-image: none; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .section, .hero { padding: 12px 0; }
+  .bid-card { break-inside: avoid; border: 1px solid #ccc; background: #fff; color: #000; box-shadow: none; }
+  .bid-card * { color: #000 !important; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 0.7em; word-break: break-all; }
 }
