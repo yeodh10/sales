@@ -333,6 +333,31 @@ with st.sidebar:
     data = "🟢" if config.DATA_GO_KR_SERVICE_KEY and "여기에" not in config.DATA_GO_KR_SERVICE_KEY else "🔴"
     st.caption(f"{anth} Anthropic 키   ·   {data} 나라장터 키")
 
+    st.divider()
+    st.markdown("### 🖥️ 영업부 포털")
+    PORTAL_PORT = 4571
+    if st.button("📤 포털 데이터 갱신", use_container_width=True,
+                 help="최신 브리핑으로 포털 data.js를 다시 생성"):
+        import portal_export
+        try:
+            s = portal_export.export()
+            st.success(f"data.js 갱신 · {s['bids']}건 ({s['source']})")
+        except Exception as ex:  # noqa: BLE001
+            st.error(f"갱신 실패: {ex}")
+    if st.button("🚀 포털 서버 열기", use_container_width=True,
+                 help=f"localhost:{PORTAL_PORT} 에 포털 서버 시작"):
+        import subprocess
+        import sys
+        try:
+            subprocess.Popen([sys.executable,
+                              str(Path(__file__).parent / "serve_portal.py"),
+                              "--port", str(PORTAL_PORT)])
+            st.success(f"서버 시작 → http://localhost:{PORTAL_PORT}")
+        except Exception as ex:  # noqa: BLE001
+            st.warning(f"시작 실패(이미 떠 있을 수 있음): {ex}")
+    st.markdown(f"열기 → [localhost:{PORTAL_PORT}](http://localhost:{PORTAL_PORT})")
+    st.caption("터미널: `python serve_portal.py`")
+
 
 # ── 본문 ──────────────────────────────────────────────────
 if not analyze:

@@ -29,12 +29,9 @@ def load_briefing() -> tuple[dict, str]:
         return json.load(f), os.path.basename(path)
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="영업부 포털 data.js 생성")
-    ap.add_argument("--ref", default=date.today().isoformat(),
-                    help="우선순위 점수 계산 기준일 (기본: 오늘)")
-    args = ap.parse_args()
-
+def export(ref: str | None = None) -> dict:
+    """브리핑 + 카탈로그 → portal/data.js 생성. 통계 dict 반환(app.py에서도 호출)."""
+    ref = ref or date.today().isoformat()
     brief, src_file = load_briefing()
     with open(CAT, encoding="utf-8") as f:
         catalog = json.load(f)
@@ -74,7 +71,7 @@ def main() -> None:
         "source": brief.get("출처", ""),
         "analyzedBy": brief.get("분석", ""),
         "total": brief.get("수집건수", len(bids)),
-        "refDate": args.ref,
+        "refDate": ref,
         "sourceFile": src_file,
         "bids": bids,
         "products": products,
@@ -88,8 +85,19 @@ def main() -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write(";\n")
 
-    print("wrote", OUT)
-    print("source:", src_file, "| bids:", len(bids), "| products:", len(products), "| ref:", args.ref)
+    return {"out": OUT, "source": src_file, "bids": len(bids),
+            "products": len(products), "ref": ref}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="영업부 포털 data.js 생성")
+    ap.add_argument("--ref", default=None,
+                    help="우선순위 점수 계산 기준일 (기본: 오늘)")
+    args = ap.parse_args()
+    s = export(args.ref)
+    print("wrote", s["out"])
+    print("source:", s["source"], "| bids:", s["bids"],
+          "| products:", s["products"], "| ref:", s["ref"])
 
 
 if __name__ == "__main__":
