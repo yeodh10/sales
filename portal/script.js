@@ -117,6 +117,8 @@
   var TRACK_KEY = 'salesportal.tracking.v1';
   var STATUSES = ['미정', '검토', '제안', '수주', '보류'];
   var TRACK = (function () { try { return JSON.parse(localStorage.getItem(TRACK_KEY)) || {}; } catch (e) { return {}; } })();
+  var TRACK_API = '/api/tracking';   // 팀 공유 서버(serve_portal.py). 없으면 로컬(localStorage) 모드.
+  var SERVER = false;
   function saveTrack() { try { localStorage.setItem(TRACK_KEY, JSON.stringify(TRACK)); } catch (e) {} }
   function getTrack(id) { return TRACK[id] || { status: '미정', owner: '', memo: '' }; }
   function setTrack(id, patch) {
@@ -127,6 +129,34 @@
       memo: patch.memo != null ? patch.memo : t.memo
     };
     saveTrack();
+    pushToServer(id, patch);
+  }
+  function updateMode() {
+    var el = document.getElementById('track-mode');
+    if (!el) return;
+    el.innerHTML = SERVER
+      ? '🟢 <strong>팀 공유 모드</strong> — 상태·담당자·메모가 서버에 저장되어 팀원과 공유됩니다.'
+      : '💼 상태·담당자·메모는 이 <strong>브라우저(기기)</strong>에 저장됩니다. 팀 공유가 필요하면 serve_portal.py 로 실행하세요.';
+  }
+  function syncFromServer() {
+    if (!window.fetch) return;
+    fetch(TRACK_API, { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d !== 'object') return;
+        Object.keys(d).forEach(function (k) { TRACK[k] = d[k]; });
+        saveTrack(); SERVER = true; updateMode(); renderBoard();
+      })
+      .catch(function () { /* 서버 없음 → 로컬 모드 유지 */ });
+  }
+  function pushToServer(id, patch) {
+    if (!SERVER || !window.fetch) return;
+    var body = { id: id };
+    if (patch.status != null) body.status = patch.status;
+    if (patch.owner != null) body.owner = patch.owner;
+    if (patch.memo != null) body.memo = patch.memo;
+    fetch(TRACK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .catch(function () { /* 실패해도 localStorage엔 저장됨 */ });
   }
   function trackRowHTML(id) {
     var t = getTrack(id);
@@ -483,4 +513,6 @@
   observeReveals();
   observeCounters();
   onScrollRAF();
+  updateMode();
+  syncFromServer();
 })();

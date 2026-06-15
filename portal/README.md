@@ -35,6 +35,7 @@ AI 영업 코파일럿이 정리한 결과 — 우선순위 공고, 제품 매�
 ```
 sales/
 ├─ portal_export.py   # 브리핑 JSON → portal/data.js 생성기
+├─ serve_portal.py    # 정적 파일 + 팀 공유 트래킹 API 서버
 └─ portal/
    ├─ index.html      # 섹션 골격 (대부분 JS가 채움)
    ├─ styles.css      # 다크 모던 대시보드 디자인 시스템
@@ -53,21 +54,27 @@ python portal_export.py --ref 2026-06-15  # 기준일 지정
 
 코파일럿 파이프라인이 새 브리핑을 만들면 `portal_export.py`만 다시 실행해 `data.js`를 갱신하면 화면 전체가 바뀝니다.
 
-## 로컬에서 보기
+## 실행
 
 ```powershell
 # sales/ 에서
+
+# (A) 로컬 모드 — 트래킹이 브라우저(localStorage)에 저장
 python -m http.server 4571 --directory portal
+
+# (B) 팀 공유 모드 — 트래킹이 서버(data/tracking.json)에 저장되어 팀원과 공유
+python serve_portal.py --port 4571
 # → http://localhost:4571
 ```
 
-(`data.js`는 `<script>`로 직접 로드하므로 `portal/index.html`을 더블클릭해도 동작합니다.)
+(`data.js`는 `<script>`로 직접 로드하므로 `portal/index.html`을 더블클릭해도 동작합니다 — 이 경우 로컬 모드.)
 
 ## 영업 관리(상태·담당자·메모)
 
-- 각 공고 카드 하단에서 **상태·담당자·메모**를 바로 입력하며, 즉시 **브라우저 localStorage**(`salesportal.tracking.v1`)에 저장됩니다.
-- **기기/브라우저 로컬**이라 팀 공유는 되지 않습니다. 공유가 필요하면 서버 저장(예: 에이전트 측 API)으로 확장하세요.
-- 상단 **상태 필터**로 "검토/제안/수주" 등 진행 단계별로 추려 볼 수 있습니다.
+- 각 공고 카드 하단에서 **상태·담당자·메모**를 바로 입력하면 즉시 저장됩니다. 상단 **상태 필터**로 진행 단계(검토/제안/수주 등)별로 추려 볼 수 있습니다.
+- **저장 모드는 자동 감지**됩니다(화면 상단에 표시):
+  - **로컬 모드**(기본): `python -m http.server` 또는 파일 직접 열기 → 브라우저 `localStorage`(`salesportal.tracking.v1`)에 저장(기기 전용).
+  - **팀 공유 모드**: `python serve_portal.py` 로 띄우면 `/api/tracking`을 통해 서버(`data/tracking.json`)에 저장되어 **팀원과 공유**됩니다. (서버가 응답하면 자동 전환, 실패 시 로컬로 폴백.)
 
 ## 기술
 

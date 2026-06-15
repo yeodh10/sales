@@ -19,6 +19,7 @@ data/cache/
 data/bids_latest.json
 data/briefing_latest.*
 data/seen_bids.json
+data/tracking.json
 data/daily/
 data/rfp_extracted.txt
 data/rfp_response_latest.md
