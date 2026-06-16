@@ -16,10 +16,13 @@ Phase 3: 제품 매칭.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import config
+
+logger = logging.getLogger(__name__)
 
 CATALOG_PATH = Path(__file__).parent / "catalog.json"
 
@@ -70,9 +73,7 @@ def match_bids(
     if catalog is None:
         catalog = load_catalog()
 
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=config.require_anthropic_key())
+    client = config.make_anthropic_client()
 
     bids_json = json.dumps(
         [
@@ -114,9 +115,31 @@ def match_bids(
     except (ValueError, json.JSONDecodeError) as e:
         raise RuntimeError(f"매칭 결과 파싱 실패: {e}") from e
 
+    # 입력과 결과를 공고번호(키) 기준으로 매핑한다.
+    # (응답이 입력 순서를 보장하지 않으므로 index 기준 병합은 공고-제품을 뒤섞을 위험이 있다.)
+    by_no = {
+        str(item.get("공고번호", "")).strip(): item
+        for item in parsed
+        if isinstance(item, dict) and str(item.get("공고번호", "")).strip()
+    }
+
     results: list[dict] = []
-    for i, item in enumerate(parsed):
-        src = security_bids[i] if i < len(security_bids) else {}
+    missing: list[str] = []
+    for src in security_bids:
+        no = str(src.get("공고번호", "")).strip()
+        item = by_no.get(no)
+        if item is None:
+            # 입력에 있으나 응답에 없는 공고: 누락 기록 후 추천제품 없이 보존.
+            missing.append(no or src.get("공고명", ""))
+            results.append(
+                {
+                    "공고번호": src.get("공고번호", ""),
+                    "공고명": src.get("공고명", ""),
+                    "카테고리": src.get("카테고리", ""),
+                    "추천제품": [],
+                }
+            )
+            continue
         recs = item.get("추천제품", []) or []
         norm_recs = [
             {"제품명": r.get("제품명", ""), "매칭이유": r.get("매칭이유", "")}
@@ -130,5 +153,12 @@ def match_bids(
                 "카테고리": item.get("카테고리") or src.get("카테고리", ""),
                 "추천제품": norm_recs,
             }
+        )
+
+    if missing:
+        logger.warning(
+            "매칭 응답에서 %d건 누락(공고번호 기준): %s",
+            len(missing),
+            ", ".join(missing),
         )
     return results

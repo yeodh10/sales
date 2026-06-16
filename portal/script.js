@@ -128,7 +128,10 @@
   var STATUSES = ['미정', '검토', '제안', '수주', '보류'];
   var TRACK = (function () { try { return JSON.parse(localStorage.getItem(TRACK_KEY)) || {}; } catch (e) { return {}; } })();
   var TRACK_API = '/api/tracking';   // 팀 공유 서버(serve_portal.py). 없으면 로컬(localStorage) 모드.
-  var PORTAL_TOKEN = 'portal-sales-2026';   // serve_portal.py PORTAL_TOKEN 과 동일(CSRF 비단순요청 강제).
+  // CSRF 비단순요청 강제용 토큰(브라우저가 보내므로 비밀이 아님).
+  // 서버는 config.PORTAL_TOKEN(.env PORTAL_TOKEN)에서 읽으므로, 서버 쪽 토큰을
+  // 기본값에서 바꾸면 아래 값도 같은 값으로 맞춰야 한다(불일치 시 403).
+  var PORTAL_TOKEN = 'portal-sales-2026';
   var SERVER = false;           // syncFromServer 성공 시 true
   var SERVER_READY = false;     // 서버 가용성 확정 여부(성공/실패 모두 확정)
   var pending = {};             // id -> 누적 patch (서버 미확정 또는 전송 실패분)

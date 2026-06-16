@@ -38,9 +38,7 @@ def extract_text(pdf_path: str | Path) -> str:
 
 def analyze_rfp_api(text: str, catalog: list[dict]) -> dict:
     """(API 모드) Claude API로 요구사항 추출 + 제품 대응표 생성."""
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=config.require_anthropic_key())
+    client = config.make_anthropic_client()
     catalog_json = json.dumps(catalog, ensure_ascii=False, indent=2)
     system = (
         "당신은 공공조달 RFP를 분석하는 보안 솔루션 엔지니어입니다. "
@@ -49,7 +47,15 @@ def analyze_rfp_api(text: str, catalog: list[dict]) -> dict:
         '반드시 {"요구사항":[{"항목","원문근거","대응제품","대응방안"}]} JSON만 출력하세요.'
     )
     # 본문이 길 수 있어 앞부분 위주로 전달(데모 목적).
-    body = text[:12000]
+    BODY_LIMIT = 12000
+    body = text[:BODY_LIMIT]
+    if len(text) > BODY_LIMIT:
+        dropped = len(text) - BODY_LIMIT
+        print(
+            f"[경고] RFP 본문이 {len(text):,}자로 길어 앞 {BODY_LIMIT:,}자만 분석합니다 "
+            f"(뒤 {dropped:,}자 미반영). 누락 위험이 있으니 PDF를 분할하거나 "
+            "무료(텍스트 추출) 경로 사용을 검토하세요."
+        )
     resp = client.messages.create(
         model=config.ANTHROPIC_MODEL,
         max_tokens=3000,

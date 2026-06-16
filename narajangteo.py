@@ -22,10 +22,33 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import config
 
 BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
+
+
+def _make_session() -> requests.Session:
+    """429/5xx에 대해 지수 백오프 재시도가 붙은 requests 세션을 만든다.
+
+    레이트리밋(429)이나 일시적 서버 오류(5xx)에 대비해 자동 재시도하고,
+    Retry-After 헤더를 존중한다. 타임아웃은 호출부에서 별도 지정한다.
+    """
+    retry = Retry(
+        total=config.DATA_GO_KR_MAX_RETRIES,
+        backoff_factor=1.0,  # 1s, 2s, 4s ... 지수 백오프
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["GET"]),
+        respect_retry_after_header=True,
+        raise_on_status=False,
+    )
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 # 조회 기간 한 번에 허용되는 최대 일수(약 31일 초과 시 resultCode 07 에러).
 MAX_RANGE_DAYS = 30
@@ -114,11 +137,12 @@ def search_bids(
 
     all_bids: list[Bid] = []
     seen: set[str] = set()
+    session = _make_session()
     win_start = begin_dt
     while win_start < end_dt:
         win_end = min(win_start + timedelta(days=MAX_RANGE_DAYS), end_dt)
         for b in _fetch_window(
-            url, service_key, division, win_start, win_end, api_rows, timeout
+            url, service_key, division, win_start, win_end, api_rows, timeout, session
         ):
             if b.공고번호 not in seen:
                 seen.add(b.공고번호)
@@ -141,6 +165,7 @@ def _fetch_window(
     end_dt: datetime,
     rows: int,
     timeout: int,
+    session: Optional[requests.Session] = None,
 ) -> list[Bid]:
     """단일 기간 구간(≤MAX_RANGE_DAYS)에 대해 한 번 호출하고 파싱."""
     params = {
@@ -153,8 +178,9 @@ def _fetch_window(
         "numOfRows": str(rows),
     }
 
+    getter = session.get if session is not None else requests.get
     try:
-        resp = requests.get(url, params=params, timeout=timeout)
+        resp = getter(url, params=params, timeout=timeout)
         resp.raise_for_status()
     except requests.RequestException as e:
         raise RuntimeError(f"나라장터 API 호출 실패: {e}") from e

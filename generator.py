@@ -18,9 +18,12 @@ Phase 5: 영업 산출물 생성.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 import config
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
     "당신은 공공기관 보안 영업 담당자를 돕는 카피라이터입니다. "
@@ -60,9 +63,7 @@ def generate_talking_points(matched_bids: list[dict]) -> list[dict]:
     if not targets:
         return []
 
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=config.require_anthropic_key())
+    client = config.make_anthropic_client()
 
     payload = json.dumps(targets, ensure_ascii=False, indent=2)
     user_prompt = (
@@ -88,9 +89,33 @@ def generate_talking_points(matched_bids: list[dict]) -> list[dict]:
     except (ValueError, json.JSONDecodeError) as e:
         raise RuntimeError(f"토킹포인트 파싱 실패: {e}") from e
 
+    # 입력과 결과를 공고번호(키) 기준으로 매핑한다.
+    # (응답 순서가 입력과 어긋날 수 있어 index 병합은 토킹포인트를 엉뚱한 공고에 붙일 위험이 있다.)
+    by_no = {
+        str(item.get("공고번호", "")).strip(): item
+        for item in parsed
+        if isinstance(item, dict) and str(item.get("공고번호", "")).strip()
+    }
+
     results: list[dict] = []
-    for i, item in enumerate(parsed):
-        src = targets[i] if i < len(targets) else {}
+    missing: list[str] = []
+    for src in targets:
+        no = str(src.get("공고번호", "")).strip()
+        item = by_no.get(no)
+        if item is None:
+            # 입력에 있으나 응답에 없는 공고: 누락 기록 후 토킹포인트는 빈 값으로 보존.
+            missing.append(no or src.get("공고명", ""))
+            results.append(
+                {
+                    "공고번호": src.get("공고번호", ""),
+                    "공고명": src.get("공고명", ""),
+                    "고객요구": "",
+                    "우리강점": "",
+                    "차별점": "",
+                    "토킹포인트": "",
+                }
+            )
+            continue
         results.append(
             {
                 "공고번호": item.get("공고번호") or src.get("공고번호", ""),
@@ -100,5 +125,12 @@ def generate_talking_points(matched_bids: list[dict]) -> list[dict]:
                 "차별점": item.get("차별점", ""),
                 "토킹포인트": item.get("토킹포인트", ""),
             }
+        )
+
+    if missing:
+        logger.warning(
+            "토킹포인트 응답에서 %d건 누락(공고번호 기준): %s",
+            len(missing),
+            ", ".join(missing),
         )
     return results

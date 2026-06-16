@@ -27,6 +27,8 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
+import config  # .env 로드 + PORTAL_TOKEN 등 설정 제공
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 PORTAL = os.path.join(BASE, "portal")
 STORE = os.path.join(BASE, "data", "tracking.json")
@@ -38,8 +40,10 @@ MAX_BODY = 65536           # POST 본문 상한(64KB) — 단일 요청 메모�
 MAX_KEYS = 1000            # tracking.json 키 개수 상한 — 무한 증식 방지
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")   # 공고번호(id) 허용 형식
 VALID_STATUS = {"미정", "검토", "제안", "수주", "보류"}  # script.js STATUSES와 동일
-# CSRF: 단순요청으로는 붙일 수 없는 커스텀 헤더(고정 상수). script.js pushToServer와 일치.
-PORTAL_TOKEN = "portal-sales-2026"
+# CSRF: 단순요청으로는 붙일 수 없는 커스텀 헤더. 소스 하드코딩을 피해
+# 환경변수/설정(config.PORTAL_TOKEN, .env로 재정의 가능)에서 읽는다.
+# script.js pushToServer가 보내는 X-Portal-Token 값과 일치해야 한다.
+PORTAL_TOKEN = config.PORTAL_TOKEN
 _CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")   # 제어문자 제거용
 
 
