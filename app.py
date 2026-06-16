@@ -19,6 +19,12 @@ import narajangteo
 import pipeline
 import scoring
 
+# 배포(Streamlit Secrets) 환경에서는 모듈 import 시점에 키가 아직 비어 있을 수 있다.
+# 스크립트가 재실행될 때마다 런타임에 키를 다시 읽어 config 값을 최신화한다.
+config.ANTHROPIC_API_KEY = config._get("ANTHROPIC_API_KEY", "")
+config.ANTHROPIC_MODEL = config._get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+config.DATA_GO_KR_SERVICE_KEY = config._get("DATA_GO_KR_SERVICE_KEY", "")
+
 DATA_DIR = Path(__file__).parent / "data"
 BRIEFING_LATEST = DATA_DIR / "briefing_latest.json"
 BRIEFING_SAMPLE = DATA_DIR / "sample_briefing.json"
