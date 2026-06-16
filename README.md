@@ -13,7 +13,7 @@
 ![status](https://img.shields.io/badge/status-개인_프로젝트-success)
 
 <!-- 배포 후 아래 라이브 데모 링크를 실제 주소로 교체하세요 -->
-**🔗 라이브 데모:** `https://<배포-후-주소>.streamlit.app` · **💻 소스:** https://github.com/yeodh10/sales
+**🔗 라이브 데모:** https://narajangteo-bid-ai.streamlit.app · **💻 소스:** https://github.com/yeodh10/sales
 
 </div>
 
@@ -35,8 +35,9 @@
 
 ## 🖼️ 화면
 
-> 실제 화면을 넣을 자리입니다. `docs/screenshots/`에 아래 파일명으로 이미지를 넣으면 자동으로 표시됩니다. (캡처 방법은 [docs/screenshots/README.md](docs/screenshots/README.md))
+이 도구는 두 가지 화면을 제공합니다 — 분석가용 **Streamlit 대시보드**와, 영업팀 공유용 **코파일럿 포털**(점수 보드·멘트 복사·담당자/메모 협업). 실제 화면은 아래 라이브 데모에서 바로 확인할 수 있습니다.
 
+<!-- 스크린샷 추가 자리: docs/screenshots/ 에 아래 PNG 4장을 넣은 뒤, 이 회색 주석 블록(첫 줄의 여는 기호와 맨 끝의 닫는 기호)을 통째로 지우면 이미지가 표시됩니다.
 <div align="center">
 
 **영업부 코파일럿 포털 — 메인**
@@ -56,6 +57,7 @@
 ![Streamlit 대시보드](docs/screenshots/04-streamlit-dashboard.png)
 
 </div>
+-->
 
 ---
 
