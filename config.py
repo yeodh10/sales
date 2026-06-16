@@ -14,9 +14,34 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6").strip()
-DATA_GO_KR_SERVICE_KEY = os.getenv("DATA_GO_KR_SERVICE_KEY", "").strip()
+
+def _from_secrets(name: str):
+    """Streamlit Cloud 배포 시 st.secrets에서 값을 읽는다(로컬 CLI에는 영향 없음).
+
+    .env(os.environ)에 값이 있으면 이 함수는 호출되지 않으므로, streamlit이
+    설치돼 있지 않거나 secrets가 없는 일반 CLI 실행에서는 전혀 동작하지 않는다.
+    """
+    try:
+        import streamlit as st  # 배포 환경에서만 사용 가능
+
+        if name in st.secrets:
+            return str(st.secrets[name])
+    except Exception:
+        return None
+    return None
+
+
+def _get(name: str, default: str = "") -> str:
+    """우선순위: 환경변수(.env) → Streamlit secrets → 기본값."""
+    value = os.getenv(name)
+    if not value:
+        value = _from_secrets(name)
+    return (value if value is not None else default).strip()
+
+
+ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = _get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+DATA_GO_KR_SERVICE_KEY = _get("DATA_GO_KR_SERVICE_KEY", "")
 
 # ── 호출 신뢰성(재시도/타임아웃) 공통 설정 ───────────────────────
 # Anthropic SDK는 429/5xx/연결오류를 지수 백오프로 자동 재시도한다.
@@ -29,7 +54,7 @@ DATA_GO_KR_MAX_RETRIES = int(os.getenv("DATA_GO_KR_MAX_RETRIES", "3"))
 
 # 포털 공유 서버 CSRF 토큰. 하드코딩을 피하고 환경변수로 분리한다.
 # (전면 인증이 아닌 비단순요청 강제용 커스텀 헤더. 배포 시 .env로 재정의 권장.)
-PORTAL_TOKEN = os.getenv("PORTAL_TOKEN", "portal-sales-2026").strip()
+PORTAL_TOKEN = _get("PORTAL_TOKEN", "portal-sales-2026")
 
 
 def _is_placeholder(value: str) -> bool:

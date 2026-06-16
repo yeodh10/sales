@@ -1,52 +1,93 @@
-# 공공기관 보안 영업 코파일럿 에이전트
+# 🛡️ 나라장터 보안 입찰 분석 AI 봇
 
-나라장터(조달청) 입찰 공고를 자동 수집 → 보안 관련 공고만 분류 → 우리 제품과 매칭 → 영업 토킹포인트 초안까지 만들어주는 AI 에이전트.
+> **공공기관 입찰공고(나라장터)를 자동으로 수집하고, AI가 우리 제품과 맞는 보안 공고만 골라 요약·정리해 주는 영업 보조 도구.**
+>
+> 영업 담당자가 매일 수백 건의 공고를 손으로 뒤지던 일을, 한 화면에서 끝내도록 만들었습니다.
 
-전체 기획은 [security-sales-agent-plan.md](security-sales-agent-plan.md) 참고.
+<!-- 배포 후 아래 두 줄의 링크를 실제 주소로 교체하세요 -->
+**🔗 라이브 데모:** `https://<배포-후-주소>.streamlit.app` &nbsp;|&nbsp; **💻 소스코드:** https://github.com/yeodh10/sales
 
-## 진행 현황
+---
 
-- [x] **Phase 0** — 셋업 (가상환경, Anthropic SDK, `.env`, Claude 호출 테스트)
-- [~] **Phase 1** — 나라장터 API 연결 (코드 완료, 인증키 받으면 실호출 검증)
-- [~] **Phase 2** — 보안 관련 분류 (코드 완료, Anthropic 키로 `--sample` 검증 가능)
-- [~] **Phase 3** — 제품 매칭 ([matcher.py](matcher.py), 예시 카탈로그 `catalog.json`)
-- [~] **Phase 4** — 에이전트화 tool use ([agent.py](agent.py), `search_bids` 도구)
-- [~] **Phase 5** — 영업 토킹포인트 생성 ([generator.py](generator.py))
-- [~] **Phase 6** — Streamlit 대시보드 ([app.py](app.py), 무료/API 2모드)
-- [~] **Phase 7-A** — RFP PDF 요구사항 추출·제품 대응표 ([rfp_extract.py](rfp_extract.py))
-- [~] **Phase 7-B** — 매일 아침 신규 보안공고 브리핑 ([daily_brief.py](daily_brief.py))
-- [x] **우선순위 스코어링** — 적합도×카테고리×마감 임박도로 공고 점수화 ([scoring.py](scoring.py))
-- [x] **연관 공고 확장** — 직접 보안 + 보안이 따라붙는 IT 사업(크로스셀)까지 수집·분류 ([keywords.py](keywords.py))
+## 📌 한눈에 보기 (왜 만들었나)
 
-> `[~]` = 코드 완료. 실제 결과 확인에는 키가 필요합니다. 분류·매칭·토킹포인트·에이전트·UI는 **Anthropic 키만 있으면 `--sample`로 전부 검증** 가능하고, 나라장터 실데이터 수집에는 `DATA_GO_KR_SERVICE_KEY`가 추가로 필요합니다.
+공공 보안 솔루션 영업에서 입찰공고 모니터링은 매일 반복되지만 시간이 많이 드는 일입니다.
 
-## 두 가지 실행 모드
+- 나라장터에는 하루에도 수백 건의 공고가 올라옵니다.
+- 그중 **우리 제품(방화벽·백신·보안관제 등)과 맞는 공고**는 일일이 검색해 찾아야 합니다.
+- 놓치면 그대로 영업 기회 손실로 이어집니다.
 
-AI 단계(분류·매칭·영업멘트)를 돌리는 방법이 둘 있습니다.
+이 봇은 그 과정을 자동화합니다. **수집 → 보안 공고 선별 → 제품 매칭 → 영업 토킹포인트 초안 생성**까지 한 번에 처리해, 담당자는 "검토와 판단"에만 집중하면 됩니다.
 
-**(A) API 모드** — `.env`의 `ANTHROPIC_API_KEY`로 파이썬이 Claude API를 직접 호출.
-`classifier.py`·`matcher.py`·`generator.py`·`agent.py`·`app.py`가 이 경로다. 독립 실행 앱.
-console.anthropic.com 선불 크레딧 필요(실비용은 1회 수십 원 수준).
+> 💡 이 프로젝트의 핵심 메시지: *"영업하는 사람이, 자신의 영업 업무를 직접 AI로 자동화했다."*
 
-**(B) Claude Code 모드(무료)** — Anthropic API 키 없이, Max 구독으로 동작.
-파이썬은 **수집만** 담당하고(`fetch_bids.py` → `data/bids_latest.json`),
-분류·매칭·영업멘트는 Claude Code가 그 JSON과 `catalog.json`을 읽어 직접 작성한다.
+---
 
-```powershell
-# (B) 무료 경로: 보안 공고 수집 (나라장터 키만 필요)
-venv\Scripts\python.exe fetch_bids.py --division 용역 --keyword 보안 --days 30
-venv\Scripts\python.exe fetch_bids.py --division 물품 --keyword 백신 --append
-# → 이후 Claude Code에게 "data/bids_latest.json 분류·매칭·브리핑 해줘" 요청
-# → 결과 예시: data/briefing_latest.md / .csv
+## 🖼️ 스크린샷
+
+> 아래는 실제 화면을 넣을 자리입니다. `docs/screenshots/` 폴더에 이미지를 넣고 경로만 맞추면 됩니다.
+
+| 대시보드 (메인) | 공고별 영업 토킹포인트 |
+|---|---|
+| ![대시보드](docs/screenshots/01-dashboard.png) | ![토킹포인트](docs/screenshots/02-talking-points.png) |
+
+| 필터·검색 | RFP 요구사항 추출 |
+|---|---|
+| ![필터](docs/screenshots/03-filter.png) | ![RFP](docs/screenshots/04-rfp.png) |
+
+---
+
+## ✨ 주요 기능
+
+- **자동 수집** — 조달청 나라장터 공공데이터 OpenAPI로 입찰공고를 자동으로 가져옵니다.
+- **AI 선별** — Claude(LLM)가 공고를 읽고 보안 관련 여부와 카테고리(방화벽·백신·관제 등)를 분류합니다.
+- **제품 매칭** — 우리 제품 카탈로그(`catalog.json`)와 공고를 연결해 어떤 제품을 제안할지 추천합니다.
+- **영업 토킹포인트 생성** — 공고별로 "고객 요구 / 우리 강점 / 차별점 / 한 줄 멘트"를 초안으로 만들어 줍니다.
+- **우선순위 스코어링** — 적합도·카테고리·마감 임박도를 점수화해 먼저 봐야 할 공고를 위로 올립니다.
+- **대시보드** — Streamlit으로 필터·표·CSV 다운로드를 한 화면에서 제공합니다.
+- **RFP 분석** — 제안요청서(PDF)에서 요구사항을 추출해 제품 대응표를 만듭니다.
+- **매일 아침 브리핑** — 신규 보안공고만 골라 날짜별 마크다운으로 저장합니다(중복 제외).
+
+---
+
+## 🧰 기술 스택
+
+| 구분 | 사용 기술 |
+|------|-----------|
+| 언어 | Python 3.12 |
+| AI | Anthropic Claude API (LLM) |
+| 데이터 | 공공데이터포털 나라장터 입찰공고 OpenAPI |
+| 화면(UI) | Streamlit |
+| 기타 | requests, pandas, pypdf, python-dotenv |
+
+> **솔직한 포지셔닝:** 개발이 본업은 아닙니다. AI 코딩 도구를 적극 활용해 빠르게 만들되,
+> **문제 정의 · 구조 설계 · 결과 검증은 직접** 했습니다. "AI 도구를 잘 쓰는 영업"이 이 프로젝트가 보여주려는 강점입니다.
+
+---
+
+## 🔄 동작 방식
+
+```
+나라장터 OpenAPI  ──▶  공고 수집(fetch_bids.py)
+                          │
+                          ▼
+                   보안 여부 분류(classifier.py)   ◀── Claude API
+                          │
+                          ▼
+                   제품 매칭(matcher.py) + 우선순위 점수(scoring.py)
+                          │
+                          ▼
+                   영업 토킹포인트 생성(generator.py)  ◀── Claude API
+                          │
+                          ▼
+                   Streamlit 대시보드(app.py) — 표 · 필터 · 다운로드
 ```
 
-> 나라장터 조회는 1회 기간이 약 31일로 제한되어, 코드가 30일 이하 구간으로 자동 분할 호출합니다.
+---
 
-## 셋업 방법
+## ▶️ 직접 실행해보기 (로컬)
 
-### 1. 의존성 설치
-
-가상환경(`venv`)은 이미 생성돼 있습니다. 새로 만들려면:
+### 1) 설치
 
 ```powershell
 # Python 3.12 기준
@@ -54,9 +95,9 @@ python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### 2. 환경변수 설정
+### 2) 환경변수 설정
 
-`.env.example`을 복사해 `.env`를 만들고 키를 채웁니다. (`.env`는 git에 커밋되지 않습니다)
+`.env.example`을 복사해 `.env`를 만들고 키를 채웁니다. (`.env`는 git에 올라가지 않습니다)
 
 ```powershell
 Copy-Item .env.example .env
@@ -64,111 +105,61 @@ Copy-Item .env.example .env
 
 | 변수 | 설명 | 발급처 |
 |------|------|--------|
-| `ANTHROPIC_API_KEY` | Claude API 키 | https://console.anthropic.com |
+| `ANTHROPIC_API_KEY` | Claude API 키 (분류·매칭·토킹포인트에 필요) | https://console.anthropic.com |
 | `ANTHROPIC_MODEL` | 사용할 모델 (기본 `claude-sonnet-4-6`) | - |
-| `DATA_GO_KR_SERVICE_KEY` | 나라장터 입찰공고 인증키 (Phase 1부터) | https://www.data.go.kr/data/15129394/openapi.do |
+| `DATA_GO_KR_SERVICE_KEY` | 나라장터 입찰공고 인증키 (실데이터 수집에 필요) | https://www.data.go.kr/data/15129394/openapi.do |
 
-### 3. Phase 0 검증
+### 3) 키 없이 먼저 둘러보기
 
-```powershell
-venv\Scripts\python.exe hello_claude.py
-```
-
-Claude의 응답과 함께 `[완료] Phase 0 셋업이 정상 동작합니다. ✅` 가 출력되면 성공입니다.
-
-### 4. Phase 1 검증 (나라장터 인증키 필요)
-
-`.env`의 `DATA_GO_KR_SERVICE_KEY`를 채운 뒤:
-
-```powershell
-venv\Scripts\python.exe phase1_fetch.py --division 용역 --keyword 정보보호 --days 30
-```
-
-최근 공고 목록이 표로 뜨고 `[완료] Phase 1 ... ✅` 가 출력되면 성공입니다.
-업무구분(`--division`)은 물품/용역/공사/외자 중 선택합니다.
-
-### 5. Phase 2 검증 (보안 분류 — Anthropic 키만 있으면 가능)
-
-나라장터 인증키 없이 예시 공고로 먼저 확인할 수 있습니다:
-
-```powershell
-venv\Scripts\python.exe phase2_classify.py --sample
-```
-
-예시 공고 6건이 보안/비보안으로 갈리고 카테고리·근거가 표시됩니다.
-실데이터로 돌리려면 `--sample` 대신 `--division 용역 --days 14` 등을 지정합니다
-(나라장터 + Anthropic 키 둘 다 필요).
-
-### 6. Phase 3+5 통합 브리핑 (분류 → 매칭 → 토킹포인트)
-
-```powershell
-venv\Scripts\python.exe brief.py --sample
-```
-
-보안 공고별 추천 제품과 영업 토킹포인트까지 한 번에 출력됩니다.
-
-### 7. Phase 4 에이전트 (자연어 → 도구 호출)
-
-```powershell
-venv\Scripts\python.exe agent.py --sample "이번 주 보안 공고 정리해줘"
-```
-
-Claude가 스스로 `search_bids` 도구를 호출한 뒤 분류·매칭·토킹포인트를 수행합니다.
-
-### 8. Phase 6 Streamlit 대시보드
+키가 없어도 **예시 데이터로 전체 흐름**을 볼 수 있습니다.
 
 ```powershell
 venv\Scripts\streamlit run app.py
 ```
 
-브라우저에서 기간·업무구분·키워드 필터, 결과 표, 토킹포인트, CSV 다운로드를 사용합니다.
-예시 공고 토글이 기본 켜져 있어 나라장터 키 없이도 흐름을 볼 수 있습니다(분류·매칭에는 Anthropic 키 필요).
+사이드바에서 `📁 저장된 브리핑 (무료)` 모드를 고르면 미리 만들어 둔 예시 브리핑이 그대로 표시됩니다.
+Anthropic 키를 넣으면 `⚡ 지금 분석` 모드로 실시간 분류·매칭까지 돌려볼 수 있습니다.
 
-### 9. Phase 7-A — RFP PDF 요구사항 추출
+> 자세한 단계별(Phase 0~7) 검증 방법은 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)에 정리돼 있습니다.
 
-```powershell
-venv\Scripts\python.exe rfp_extract.py "C:\경로\제안요청서.pdf"
-# → data/rfp_extracted.txt 생성 후, Claude Code에게
-#   "rfp_extracted.txt 요구사항 뽑고 catalog.json으로 대응표 만들어줘" 요청 (무료)
-# API 키가 있으면:  ... rfp_extract.py rfp.pdf --api  (대응표까지 자동 생성)
-```
+---
 
-### 10. Phase 7-B — 매일 아침 신규 보안공고 브리핑
+## ☁️ 온라인 배포 (Streamlit Community Cloud)
 
-```powershell
-venv\Scripts\python.exe daily_brief.py --days 2
-# → data/daily/보안공고_YYYY-MM-DD.md 에 '신규' 공고만 저장 (seen_bids.json으로 중복 제외)
-```
+채용담당자가 설치 없이 브라우저로 바로 볼 수 있게 무료로 배포할 수 있습니다.
+전체 단계는 **[DEPLOY.md](DEPLOY.md)** 를 참고하세요. 요약:
 
-**매일 자동 실행(Windows 작업 스케줄러):**
+1. 이 저장소를 GitHub에 공개(public) 상태로 둡니다.
+2. https://share.streamlit.io 에 GitHub로 로그인합니다.
+3. 저장소 `yeodh10/sales`, 브랜치 `main`, 메인 파일 `app.py`를 지정하고 Deploy.
+4. (선택) 실시간 분석을 켜려면 Settings → Secrets에 키를 넣습니다. **넣지 않으면 예시 데모로만 동작해 비용·남용 걱정이 없습니다.**
 
-```powershell
-schtasks /Create /SC DAILY /ST 08:00 /TN "보안공고_데일리브리핑" `
-  /TR "C:\Claude\sales\venv\Scripts\python.exe C:\Claude\sales\daily_brief.py"
-```
+---
 
-## 모듈 구조
+## 🔒 보안 · 주의사항
+
+- API 키·인증키는 반드시 `.env`(로컬) 또는 Streamlit Secrets(배포)로 관리하며 **git에 커밋하지 않습니다.**
+- 입찰 참여 결정은 **항상 사람이 최종 검증**합니다. 이 도구는 후보를 빠르게 추려주는 보조 수단입니다.
+- 공공데이터·제품정보는 모두 공개 범위 내에서만 사용합니다.
+
+---
+
+## 📂 주요 모듈
 
 | 파일 | 역할 |
 |------|------|
-| `config.py` | `.env` 로더 · 키 가드 · 콘솔 UTF-8 |
-| `narajangteo.py` | 나라장터 입찰공고 수집·파싱 (Phase 1) |
-| `classifier.py` | 보안 여부·카테고리 분류 (Phase 2) |
-| `scoring.py` | 영업 우선순위 점수(적합도·카테고리·마감) — AI 없이 결정론적 |
-| `keywords.py` | 수집 키워드 그룹(CORE 직접보안 / ADJACENT 연관) |
-| `build_briefing.py` | 공고 + 분류규칙(decisions.json) → 브리핑 JSON 빌더 |
-| `matcher.py` | 제품 카탈로그 매칭 (Phase 3) |
-| `generator.py` | 영업 토킹포인트 생성 (Phase 5) |
-| `pipeline.py` | 분류→매칭→토킹포인트 오케스트레이션 |
-| `agent.py` | tool use 에이전트 (Phase 4) |
-| `app.py` | Streamlit 대시보드 (Phase 6, 무료/API 2모드) |
-| `fetch_bids.py` | 공고만 수집해 JSON 저장 (무료 경로 입력) |
-| `rfp_extract.py` | RFP PDF 요구사항 추출·대응표 (Phase 7-A) |
-| `daily_brief.py` | 매일 아침 신규 보안공고 브리핑 (Phase 7-B) |
-| `brief.py` / `phase1_fetch.py` / `phase2_classify.py` | CLI 실행 스크립트 |
+| `config.py` | `.env`/Secrets 로더 · 키 가드 |
+| `narajangteo.py` | 나라장터 입찰공고 수집·파싱 |
+| `classifier.py` | 보안 여부·카테고리 분류 |
+| `matcher.py` | 제품 카탈로그 매칭 |
+| `scoring.py` | 영업 우선순위 점수(AI 없이 결정론적) |
+| `generator.py` | 영업 토킹포인트 생성 |
+| `pipeline.py` | 분류 → 매칭 → 토킹포인트 오케스트레이션 |
+| `agent.py` | tool use 기반 에이전트 |
+| `app.py` | Streamlit 대시보드 |
+| `rfp_extract.py` | RFP PDF 요구사항 추출·대응표 |
+| `daily_brief.py` | 매일 아침 신규 보안공고 브리핑 |
 
-## 주의사항
+---
 
-- API 키·인증키는 반드시 `.env`로 관리하고 git에 커밋하지 않습니다.
-- 입찰 판단·참여 결정은 항상 사람이 최종 검증합니다. 이 도구는 후보를 빠르게 추려주는 보조 수단입니다.
-- 공공데이터·회사 제품정보는 모두 공개 범위 내에서만 사용합니다.
+*개인 프로젝트 · 보안/IT 솔루션 기술영업 포트폴리오*
