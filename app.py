@@ -47,7 +47,7 @@ def cat_color(cat: str) -> str:
     return CAT_COLORS.get(cat, "#3DDC97")
 
 
-st.set_page_config(page_title="보안 영업 코파일럿", page_icon="🔒", layout="wide")
+st.set_page_config(page_title="보안 영업 Copilot", page_icon="🔒", layout="wide")
 
 st.markdown(
     """
@@ -122,6 +122,10 @@ st.markdown(
         font-weight:700; color:var(--g); background:color-mix(in srgb,var(--g) 18%, transparent); }
       .catdot { display:inline-block; width:8px; height:8px; border-radius:50%;
         background:var(--c); margin-right:7px; vertical-align:middle; }
+      .navlinks a { display:block; padding:7px 10px; margin:3px 0; border-radius:8px;
+        font-size:.9rem; font-weight:600; color:#CBD5E1; text-decoration:none;
+        background:#121823; border:1px solid #222B3B; }
+      .navlinks a:hover { border-color:#3DDC97; color:#3DDC97; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -142,11 +146,15 @@ def _hero(meta: dict | None) -> None:
         src = (f'출처 {html.escape(str(meta.get("출처","")))} · '
                f'생성 {html.escape(str(meta.get("생성일","")))} · '
                f'분석 {html.escape(str(meta.get("분석","")))}')
+    analysis = str(meta.get("분석", "")) if meta else ""
+    note = ("실시간 나라장터 데이터를 보안 키워드로 1차 선별했습니다 (AI 분류 미적용)."
+            if "키워드" in analysis
+            else "AI 1차 분석이며 최종 판단은 담당자가 검수합니다.")
     st.markdown(
         f'<div class="hero"><div class="eyebrow">🔒 PUBLIC SECTOR SECURITY SALES</div>'
-        f'<h1>보안 영업 코파일럿</h1>'
+        f'<h1>보안 영업 Copilot</h1>'
         f'<p>나라장터 입찰공고 → 보안 분류 → 제품 매칭 → 영업 토킹포인트.<br>'
-        f'AI 1차 분석이며 최종 판단은 담당자가 검수합니다. '
+        f'{note} '
         f'<span class="src">{src}</span></p></div>',
         unsafe_allow_html=True,
     )
@@ -254,7 +262,7 @@ def render_briefing(items: list[dict], meta: dict | None = None) -> None:
     _hero(meta)
     _kpis(len(items), len(targets), len(adj), hot)
 
-    st.markdown('<div class="sec-h">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 직접 보안, 우선순위 점수순</span></div>',
+    st.markdown('<div class="sec-h" id="sec-target">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 직접 보안, 우선순위 점수순</span></div>',
                 unsafe_allow_html=True)
     if targets:
         st.markdown('<div class="grid">' + "".join(_deal_html(i) for i in targets) + "</div>",
@@ -263,12 +271,12 @@ def render_briefing(items: list[dict], meta: dict | None = None) -> None:
         st.caption("매칭된 영업 대상이 없습니다.")
 
     if adj:
-        st.markdown('<div class="sec-h">🔗 연관 기회 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 보안이 따라붙는 IT 사업 (크로스셀)</span></div>',
+        st.markdown('<div class="sec-h" id="sec-adj">🔗 연관 기회 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 보안이 따라붙는 IT 사업 (크로스셀)</span></div>',
                     unsafe_allow_html=True)
         st.markdown('<div class="grid">' + "".join(_adj_html(i) for i in adj) + "</div>",
                     unsafe_allow_html=True)
 
-    st.markdown('<div class="sec-h">📋 전체 브리핑</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-h" id="sec-all">📋 전체 브리핑</div>', unsafe_allow_html=True)
     st.markdown(_table_html(items), unsafe_allow_html=True)
 
     df = pd.DataFrame([{
@@ -306,16 +314,85 @@ def _pipeline_to_items(out: dict, bids: list[dict]) -> list[dict]:
     return items
 
 
+
+# 키워드 → 표시 카테고리 (AI 없이 결정론적 매핑). 앞쪽이 더 구체적.
+_LIVE_CORE_CAT = [
+    (("방화벽",), "방화벽"),
+    (("백신", "EDR"), "백신/EDR"),
+    (("보안관제", "관제", "SOC"), "보안관제(SOC)"),
+    (("망분리",), "망분리"),
+    (("접근통제", "IAM"), "접근통제(IAM)"),
+    (("정보보호", "정보보안", "ISMS", "개인정보", "취약점", "모의해킹", "암호", "인증서", "컨설팅"),
+     "정보보호 컨설팅"),
+]
+_LIVE_ADJ_CAT = [
+    (("클라우드",), "클라우드 전환"),
+    (("데이터센터",), "데이터센터"),
+    (("네트워크", "서버"), "네트워크/인프라"),
+    (("CCTV", "영상"), "통합관제/영상"),
+    (("전자정부",), "전자정부"),
+    (("홈페이지", "웹"), "홈페이지/웹"),
+    (("스마트시티",), "스마트시티"),
+    (("정보시스템", "정보화", "시스템 구축", "시스템 통합", "전산", "디지털"), "정보시스템 구축"),
+]
+
+
+def _live_items(bids: list[dict], scope: str = "all") -> list[dict]:
+    """나라장터 실데이터를 AI 없이 보안 키워드로 1차 선별해 화면 아이템으로 변환.
+
+    scope: "core"=직접 보안만, "all"=직접+연관(크로스셀).
+    """
+    import keywords as _kw
+
+    out: list[dict] = []
+    for b in bids:
+        name = (b.get("공고명", "") or "").replace(" ", "")
+        cat = grade = None
+        for kws, c in _LIVE_CORE_CAT:
+            if any(k.replace(" ", "") in name for k in kws):
+                cat, grade = c, "영업대상"
+                break
+        if cat is None and any(k in name for k in _kw.CORE):
+            cat, grade = "정보보호 컨설팅", "영업대상"
+        if cat is None and scope != "core":
+            for kws, c in _LIVE_ADJ_CAT:
+                if any(k.replace(" ", "") in name for k in kws):
+                    cat, grade = c, "연관기회"
+                    break
+            if cat is None and any(k in name for k in _kw.ADJACENT):
+                cat, grade = "정보시스템 구축", "연관기회"
+        if cat is None:
+            continue
+        out.append({
+            "공고번호": b.get("공고번호", ""), "공고명": b.get("공고명", ""),
+            "발주기관": b.get("공고기관", ""), "업무구분": b.get("업무구분", ""),
+            "공고url": b.get("공고url", ""), "마감일시": b.get("마감일시", ""),
+            "카테고리": cat, "등급": grade, "추천제품": [],
+        })
+    return out
+
+
 # ── 사이드바 ──────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ 실행 모드")
     mode = st.radio(
-        "모드 선택", ["📁 저장된 브리핑 (무료)", "⚡ 지금 분석 (API 키 필요)"],
+        "모드 선택",
+        ["📁 저장된 브리핑 (무료)", "🔎 실시간 공고 (나라장터)", "⚡ 지금 분석 (API 키 필요)"],
         label_visibility="collapsed",
     )
     analyze = mode.startswith("⚡")
+    livefetch = mode.startswith("🔎")
 
-    if analyze:
+    if livefetch:
+        st.divider()
+        st.caption("나라장터에서 **오늘자 실데이터**를 가져와 보안 키워드로 1차 선별합니다. "
+                   "AI 분류·토킹포인트는 적용하지 않아 추가 비용이 없습니다.")
+        lf_division = st.selectbox("업무구분", list(narajangteo.BUSINESS_DIVISIONS),
+                                   index=1, key="lf_div")
+        lf_scope = st.radio("범위", ["보안 직접+연관", "보안 직접만"], index=0, key="lf_scope")
+        lf_days = st.slider("최근 며칠", 3, 30, 14, key="lf_days")
+        run = st.button("실시간 공고 불러오기", type="primary", use_container_width=True)
+    elif analyze:
         st.divider()
         use_sample = st.toggle("예시 공고로 실행", value=True)
         division = st.selectbox("업무구분", list(narajangteo.BUSINESS_DIVISIONS), index=1)
@@ -329,6 +406,17 @@ with st.sidebar:
                    "브리핑을 요청하면 `briefing_latest.json`이 생기고 여기 표시됩니다.")
 
     st.divider()
+    st.markdown("### 📑 바로가기")
+    st.markdown(
+        '<div class="navlinks">'
+        '<a href="#sec-target">⭐ 영업 우선대상</a>'
+        '<a href="#sec-adj">🔗 연관 기회</a>'
+        '<a href="#sec-all">📋 전체 브리핑</a></div>',
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+    st.markdown("### 🔑 상태")
     anth = "🟢" if config.ANTHROPIC_API_KEY and "여기에" not in config.ANTHROPIC_API_KEY else "🔴"
     data = "🟢" if config.DATA_GO_KR_SERVICE_KEY and "여기에" not in config.DATA_GO_KR_SERVICE_KEY else "🔴"
     st.caption(f"{anth} Anthropic 키   ·   {data} 나라장터 키")
@@ -360,7 +448,31 @@ with st.sidebar:
 
 
 # ── 본문 ──────────────────────────────────────────────────
-if not analyze:
+if livefetch:
+    if run:
+        scope = "core" if lf_scope.startswith("보안 직접만") else "all"
+        try:
+            with st.spinner("나라장터에서 실시간 공고를 가져오는 중..."):
+                _raw = narajangteo.search_bids(division=lf_division, keyword=None,
+                                               days=lf_days, rows=100)
+                _bids = [b.to_dict() for b in _raw]
+        except RuntimeError as ex:
+            st.error(str(ex)); st.stop()
+        items = _live_items(_bids, scope=scope)
+        if not items:
+            st.warning("선별된 보안 관련 공고가 없습니다. 기간/업무구분을 넓혀보세요."); st.stop()
+        st.info("실시간 나라장터 공고를 **보안 키워드로 1차 선별**한 결과입니다. "
+                "AI 분류·제품 매칭·토킹포인트는 적용하지 않았습니다(추가 비용 없음). "
+                "정밀 분석은 로컬에서 Anthropic 키와 함께 실행하세요.")
+        from datetime import date as _date
+        _meta = {"출처": "나라장터(조달청) 입찰공고정보서비스",
+                 "생성일": _date.today().isoformat(), "분석": "키워드 선별(AI 미적용)"}
+        render_briefing(items, _meta)
+    else:
+        _hero(None)
+        st.info("왼쪽에서 업무구분·기간을 정하고 **실시간 공고 불러오기**를 눌러주세요. "
+                "(나라장터 키만 있으면 동작 · 추가 비용 없음)")
+elif not analyze:
     saved, _src = _load_saved()
     if saved is None:
         _hero(None)
