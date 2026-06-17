@@ -171,6 +171,16 @@ st.markdown(
       /* ── Buttons ── */
       .stButton>button{ border-radius:12px; font-weight:600; letter-spacing:-.01em; transition:transform .15s, filter .2s; }
       .stButton>button:hover{ transform:translateY(-1px); filter:brightness(1.05); }
+
+      /* ── Tabs (페이지 분리) ── */
+      .stTabs [data-baseweb="tab-list"]{ gap:4px; border-bottom:1px solid var(--line); margin-bottom:22px; }
+      .stTabs [data-baseweb="tab"]{ height:46px; padding:0 20px; background:transparent; color:var(--muted);
+        font-weight:600; font-size:1rem; letter-spacing:-.01em; border-radius:10px 10px 0 0; }
+      .stTabs [data-baseweb="tab"]:hover{ color:var(--text); background:rgba(255,255,255,.03); }
+      .stTabs [aria-selected="true"]{ color:var(--text)!important; }
+      .stTabs [data-baseweb="tab-highlight"]{ background:var(--accent)!important; height:3px; border-radius:3px 3px 0 0; }
+      .stTabs [data-baseweb="tab-border"]{ background:transparent; }
+      .tabcap{ color:var(--faint); font-size:.88rem; margin:0 0 18px; }
         </style>
     """,
     unsafe_allow_html=True,
@@ -307,37 +317,46 @@ def render_briefing(items: list[dict], meta: dict | None = None) -> None:
     _hero(meta)
     _kpis(len(items), len(targets), len(adj), hot)
 
-    st.markdown('<div class="sec-h" id="sec-target">⭐ 영업 우선대상 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 직접 보안, 우선순위 점수순</span></div>',
-                unsafe_allow_html=True)
-    if targets:
-        st.markdown('<div class="grid">' + "".join(_deal_html(i) for i in targets) + "</div>",
-                    unsafe_allow_html=True)
-    else:
-        st.caption("매칭된 영업 대상이 없습니다.")
+    tab1, tab2, tab3 = st.tabs([
+        f"⭐ 영업 우선대상 {len(targets)}",
+        f"🔗 연관 기회 {len(adj)}",
+        f"📋 전체 브리핑 {len(items)}",
+    ])
 
-    if adj:
-        st.markdown('<div class="sec-h" id="sec-adj">🔗 연관 기회 <span style="color:#7C8A9C;font-size:.85rem;font-weight:500">· 보안이 따라붙는 IT 사업 (크로스셀)</span></div>',
-                    unsafe_allow_html=True)
-        st.markdown('<div class="grid">' + "".join(_adj_html(i) for i in adj) + "</div>",
-                    unsafe_allow_html=True)
+    with tab1:
+        st.markdown('<div class="tabcap">직접 보안 · 우선순위 점수순</div>', unsafe_allow_html=True)
+        if targets:
+            st.markdown('<div class="grid">' + "".join(_deal_html(i) for i in targets) + "</div>",
+                        unsafe_allow_html=True)
+        else:
+            st.caption("매칭된 영업 대상이 없습니다.")
 
-    st.markdown('<div class="sec-h" id="sec-all">📋 전체 브리핑</div>', unsafe_allow_html=True)
-    st.markdown(_table_html(items), unsafe_allow_html=True)
+    with tab2:
+        st.markdown('<div class="tabcap">보안이 따라붙는 IT 사업 · 크로스셀 기회</div>', unsafe_allow_html=True)
+        if adj:
+            st.markdown('<div class="grid">' + "".join(_adj_html(i) for i in adj) + "</div>",
+                        unsafe_allow_html=True)
+        else:
+            st.caption("연관 기회로 분류된 공고가 없습니다.")
 
-    df = pd.DataFrame([{
-        "점수": it.get("_score", {}).get("점수", 0),
-        "우선순위": it.get("_score", {}).get("등급표시", ""),
-        "등급": it.get("등급", ""), "카테고리": it.get("카테고리", ""),
-        "공고명": it.get("공고명", ""), "발주기관": it.get("발주기관", ""),
-        "업무": it.get("업무구분", ""), "마감": it.get("마감일시", ""),
-        "추천제품": "; ".join(p.get("제품명", "") for p in it.get("추천제품", [])),
-    } for it in items])
-    st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
-    st.download_button(
-        "⬇️  CSV 다운로드",
-        df.to_csv(index=False).encode("utf-8-sig"),
-        file_name="보안공고_브리핑.csv", mime="text/csv",
-    )
+    with tab3:
+        st.markdown('<div class="tabcap">전체 공고 · 점수·등급·마감 한눈에</div>', unsafe_allow_html=True)
+        st.markdown(_table_html(items), unsafe_allow_html=True)
+
+        df = pd.DataFrame([{
+            "점수": it.get("_score", {}).get("점수", 0),
+            "우선순위": it.get("_score", {}).get("등급표시", ""),
+            "등급": it.get("등급", ""), "카테고리": it.get("카테고리", ""),
+            "공고명": it.get("공고명", ""), "발주기관": it.get("발주기관", ""),
+            "업무": it.get("업무구분", ""), "마감": it.get("마감일시", ""),
+            "추천제품": "; ".join(p.get("제품명", "") for p in it.get("추천제품", [])),
+        } for it in items])
+        st.markdown("<div style='margin-top:14px'></div>", unsafe_allow_html=True)
+        st.download_button(
+            "⬇️  CSV 다운로드",
+            df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="보안공고_브리핑.csv", mime="text/csv",
+        )
 
 
 def _pipeline_to_items(out: dict, bids: list[dict]) -> list[dict]:
@@ -449,16 +468,6 @@ with st.sidebar:
         st.divider()
         st.caption("무료 경로: `fetch_bids.py`로 공고 수집 후 Claude Code에게 "
                    "브리핑을 요청하면 `briefing_latest.json`이 생기고 여기 표시됩니다.")
-
-    st.divider()
-    st.markdown("### 📑 바로가기")
-    st.markdown(
-        '<div class="navlinks">'
-        '<a href="#sec-target">⭐ 영업 우선대상</a>'
-        '<a href="#sec-adj">🔗 연관 기회</a>'
-        '<a href="#sec-all">📋 전체 브리핑</a></div>',
-        unsafe_allow_html=True,
-    )
 
     st.divider()
     st.markdown("### 🔑 상태")
