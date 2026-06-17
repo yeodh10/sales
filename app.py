@@ -438,6 +438,18 @@ def _live_items(bids: list[dict], scope: str = "all") -> list[dict]:
     return out
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _cached_live_fetch(division: str, days: int) -> list[dict]:
+    """실시간 나라장터 조회 결과를 10분간 캐시한다.
+
+    같은 조건의 반복 클릭이 data.go.kr를 매번 새로 호출하지 않게 하여
+    공개 데모에서의 쿼터 소모를 줄이고 응답 속도를 높인다. 캐시는 방문자
+    전체가 공유한다. 오류(키 미설정·API 실패)는 캐시되지 않고 그대로 전달된다.
+    """
+    raw = narajangteo.search_bids(division=division, keyword=None, days=days, rows=100)
+    return [b.to_dict() for b in raw]
+
+
 # ── 사이드바 ──────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ 실행 모드")
@@ -509,9 +521,7 @@ if livefetch:
         scope = "core" if lf_scope.startswith("보안 직접만") else "all"
         try:
             with st.spinner("나라장터에서 실시간 공고를 가져오는 중..."):
-                _raw = narajangteo.search_bids(division=lf_division, keyword=None,
-                                               days=lf_days, rows=100)
-                _bids = [b.to_dict() for b in _raw]
+                _bids = _cached_live_fetch(lf_division, lf_days)
         except RuntimeError as ex:
             st.error(str(ex)); st.stop()
         items = _live_items(_bids, scope=scope)
