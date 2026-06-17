@@ -314,14 +314,16 @@ def render_briefing(items: list[dict], meta: dict | None = None) -> None:
     items = sorted(items, key=lambda x: (GRADE_ORDER.get(x.get("등급", ""), 9),
                                          -x.get("_score", {}).get("점수", 0)))
 
-    _hero(meta)
-    _kpis(len(items), len(targets), len(adj), hot)
-
-    tab1, tab2, tab3 = st.tabs([
+    tab0, tab1, tab2, tab3 = st.tabs([
+        "🏠 메인",
         f"⭐ 영업 우선대상 {len(targets)}",
         f"🔗 연관 기회 {len(adj)}",
         f"📋 전체 브리핑 {len(items)}",
     ])
+
+    with tab0:
+        _hero(meta)
+        _kpis(len(items), len(targets), len(adj), hot)
 
     with tab1:
         st.markdown('<div class="tabcap">직접 보안 · 우선순위 점수순</div>', unsafe_allow_html=True)
